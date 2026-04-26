@@ -1,0 +1,12 @@
+# Qdrant client + fastembed (BGE-M3 dense & BM25 sparse 포함)
+qdrant-client[fastembed]>=1.9.0
+fastembed>=0.3.0
+ 
+# LangChain
+langchain>=0.2.0
+langchain-community>=0.2.0
+langchain-core>=0.2.0
+langchain-text-splitters>=0.2.0
+ 
+# tiktoken (정확한 토큰 수 기반 청킹)
+tiktoken>=0.7.0
