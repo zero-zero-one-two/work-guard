@@ -1,6 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import * as ExpoSplashScreen from 'expo-splash-screen';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
@@ -27,6 +27,12 @@ export default function RootLayout() {
     prepare();
   }, []);
 
+  useEffect(() => {
+    if (isReady) {
+      router.replace('/language-select');
+    }
+  }, [isReady]);
+
   if (!isReady) {
     return <SplashScreen />;
   }
@@ -35,9 +41,10 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="language-select" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
-      <StatusBar style="light" backgroundColor="#3182F6" translucent />
+      <StatusBar style="auto" />
     </ThemeProvider>
   );
 }
