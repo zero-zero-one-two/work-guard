@@ -22,6 +22,7 @@ const STEPS = [
 ];
 
 const CIRCLE_SIZE = 32;
+const CONNECTOR_HEIGHT = 2;
 
 export function StepIndicator({ currentStep }: StepIndicatorProps) {
   return (
@@ -84,7 +85,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingHorizontal: 24,
+    paddingHorizontal: 30,
     paddingVertical: 16,
     backgroundColor: '#F6F7F9',
   },
@@ -102,23 +103,25 @@ const styles = StyleSheet.create({
   // 연결선 — marginTop으로 원의 수직 중앙에 맞춤
   line: {
     flex: 1,
-    height: 1.5,
-    backgroundColor: '#E5E7EB',
-    marginTop: CIRCLE_SIZE / 2 - 0.75,
+    marginTop: CIRCLE_SIZE / 2 - CONNECTOR_HEIGHT / 2,
+    marginHorizontal: 14,
+    height: CONNECTOR_HEIGHT,
+    borderRadius: 999,
+    backgroundColor: '#AAB4C2',
   },
   lineCompleted: {
-    backgroundColor: '#16A34A',
+    backgroundColor: '#9CD6A3',
   },
 
   stepItem: {
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   circle: {
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
     borderRadius: CIRCLE_SIZE / 2,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#F2F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -126,26 +129,28 @@ const styles = StyleSheet.create({
     backgroundColor: Brand.primary,
   },
   circleCompleted: {
-    backgroundColor: '#16A34A',
+    backgroundColor: '#F1FAF1',
+    borderWidth: 1.5,
+    borderColor: '#9CD6A3',
   },
   circleNum: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#9BA1A6',
+    color: '#AEB7C2',
   },
   circleNumActive: {
     color: '#fff',
   },
   label: {
     fontSize: 11,
-    fontWeight: '500',
-    color: '#9BA1A6',
+    fontWeight: '600',
+    color: '#B1B9C4',
   },
   labelActive: {
     color: Brand.primary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   labelCompleted: {
-    color: '#16A34A',
+    color: '#2F9448',
   },
 });
