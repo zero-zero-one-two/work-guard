@@ -11,14 +11,15 @@ interface ContractLayoutProps {
   title?: string;
   children: ReactNode;
   onBack?: () => void;
-  rightAction?: 'close' | 'save' | null;
+  rightAction?: 'close' | 'save' | 'home' | null;
   onRightAction?: () => void;
+  rightContent?: ReactNode;
 }
 
 const DEFAULT_TITLES: Record<1 | 2 | 3, string> = {
   1: '계약서 분석',
   2: '분석 중',
-  3: '분석 중',
+  3: '결과 확인',
 };
 
 export function ContractLayout({
@@ -28,6 +29,7 @@ export function ContractLayout({
   onBack,
   rightAction = 'close',
   onRightAction,
+  rightContent,
 }: ContractLayoutProps) {
   const insets = useSafeAreaInsets();
   const headerTitle = title ?? DEFAULT_TITLES[step];
@@ -42,13 +44,20 @@ export function ContractLayout({
             </View>
             <Text style={styles.headerTitle}>{headerTitle}</Text>
           </TouchableOpacity>
-          {rightAction && (
-            <TouchableOpacity onPress={onRightAction}>
-              <Text style={styles.rightActionText}>
-                {rightAction === 'close' ? '닫기' : '저장'}
-              </Text>
-            </TouchableOpacity>
-          )}
+          <View style={styles.rightActions}>
+            {rightContent}
+            {rightAction && (
+              <TouchableOpacity onPress={onRightAction}>
+                {rightAction === 'home' ? (
+                  <Ionicons name="home-outline" size={22} color="#687076" />
+                ) : (
+                  <Text style={styles.rightActionText}>
+                    {rightAction === 'close' ? '닫기' : '저장'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         <StepIndicator currentStep={step} />
@@ -103,6 +112,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#687076',
     paddingHorizontal: 4,
+  },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   content: {
     flex: 1,

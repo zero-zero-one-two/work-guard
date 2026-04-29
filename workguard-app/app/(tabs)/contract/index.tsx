@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { TabActions, useNavigation } from '@react-navigation/native';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { ContractLayout } from '@/components/contract/contract-layout';
@@ -47,8 +48,24 @@ function DocumentMockup() {
 }
 
 export default function ContractUploadScreen() {
+  const navigation = useNavigation();
+  const handleClose = () => {
+    const parent = navigation.getParent();
+
+    if (parent) {
+      parent.dispatch(TabActions.jumpTo('index'));
+      return;
+    }
+
+    router.replace('/');
+  };
+
   return (
-    <ContractLayout step={1} rightAction="close" onBack={() => router.back()}>
+    <ContractLayout
+      step={1}
+      rightAction="home"
+      onBack={handleClose}
+      onRightAction={handleClose}>
       <View style={styles.container}>
 
         {/* 안내 문구 */}
@@ -91,7 +108,7 @@ export default function ContractUploadScreen() {
         <TouchableOpacity
           style={styles.cameraBtn}
           activeOpacity={0.85}
-          onPress={() => router.push('/contract-camera')}>
+          onPress={() => router.push('/contract/camera')}>
           <Ionicons name="camera-outline" size={22} color="#fff" />
           <Text style={styles.cameraBtnText}>카메라로 촬영하기</Text>
         </TouchableOpacity>

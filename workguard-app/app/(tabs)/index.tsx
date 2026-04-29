@@ -18,7 +18,7 @@ const SHORTCUTS = [
     icon: 'scan-outline' as const,
     color: Brand.primary,
     bg: '#EBF3FF',
-    route: '/(tabs)/contract',
+    route: '/contract',
   },
   {
     label: '급여 캘린더',
