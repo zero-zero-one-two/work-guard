@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
@@ -269,6 +270,18 @@ export default function ContractAnalyzingScreen() {
     return () => clearTimeout(progressTimer);
   }, [activeIndex]);
 
+  useEffect(() => {
+    if (activeIndex < BASE_STEPS.length) {
+      return;
+    }
+
+    const navigateTimer = setTimeout(() => {
+      router.replace('/contract/result');
+    }, 700);
+
+    return () => clearTimeout(navigateTimer);
+  }, [activeIndex]);
+
   const steps = useMemo(
     () =>
       BASE_STEPS.map((step, index) => {
@@ -287,13 +300,22 @@ export default function ContractAnalyzingScreen() {
     [activeIndex]
   );
 
+  const isAnalysisComplete = activeIndex >= BASE_STEPS.length;
+
   return (
-    <ContractLayout step={2} rightAction={null}>
+    <ContractLayout
+      step={2}
+      rightAction={null}
+      onBack={() => router.replace('/contract')}>
       <View style={styles.container}>
         <View style={styles.statusSection}>
           <SpinnerIcon />
-          <Text style={styles.statusTitle}>계약서 분석 중이에요</Text>
-          <Text style={styles.statusSub}>잠깐만 기다려 주세요...</Text>
+          <Text style={styles.statusTitle}>
+            {isAnalysisComplete ? '분석 완료했어요!' : '계약서 분석 중이에요'}
+          </Text>
+          <Text style={styles.statusSub}>
+            {isAnalysisComplete ? '결과 화면으로 이동하고 있어요...' : '잠깐만 기다려 주세요...'}
+          </Text>
         </View>
 
         <View style={styles.fileCard}>

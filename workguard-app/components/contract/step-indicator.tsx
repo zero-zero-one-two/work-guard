@@ -54,7 +54,7 @@ export function StepIndicator({ currentStep }: StepIndicatorProps) {
                   status === 'completed' && styles.circleCompleted,
                 ]}>
                 {status === 'completed' ? (
-                  <Ionicons name="checkmark" size={14} color="#fff" />
+                  <Ionicons name="checkmark" size={14} color="#2F9448" />
                 ) : (
                   <Text
                     style={[

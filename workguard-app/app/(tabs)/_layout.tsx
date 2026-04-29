@@ -28,6 +28,9 @@ export default function TabLayout() {
         name="contract"
         options={{
           title: '계약서',
+          href: '/contract',
+          popToTopOnBlur: true,
+          unmountOnBlur: true,
           tabBarIcon: ({ color }) => <Ionicons name="document-text-outline" size={24} color={color} />,
         }}
       />

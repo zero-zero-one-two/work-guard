@@ -121,7 +121,7 @@ export default function ContractCameraScreen() {
         <TouchableOpacity
           style={styles.ctaBtn}
           activeOpacity={0.85}
-          onPress={() => router.replace('/(tabs)/contract/analyzing')}>
+          onPress={() => router.replace('/contract/analyzing')}>
           <Text style={styles.ctaBtnText}>촬영 완료 · 분석 시작하기 →</Text>
         </TouchableOpacity>
 
