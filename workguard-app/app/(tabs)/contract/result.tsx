@@ -287,15 +287,16 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingTop: 8,
     paddingBottom: 32,
-    gap: 14,
+    gap: 12,
   },
   summaryCard: {
     borderRadius: 24,
-    paddingHorizontal: 22,
-    paddingTop: 18,
-    paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
+    minHeight: 188,
   },
   summaryCardIssues: {
     backgroundColor: '#1B2028',
@@ -307,7 +308,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.72)',
-    marginBottom: 10,
+    marginTop: 4,
+    marginBottom: 8,
   },
   summaryTitleRow: {
     flexDirection: 'row',
@@ -332,7 +334,7 @@ const styles = StyleSheet.create({
     lineHeight: 33,
   },
   summaryBody: {
-    marginTop: 8,
+    marginTop: 6,
     fontSize: 15,
     lineHeight: 22,
     fontWeight: '700',
@@ -342,7 +344,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 18,
+    marginTop: 20,
   },
   summaryChip: {
     borderRadius: 999,

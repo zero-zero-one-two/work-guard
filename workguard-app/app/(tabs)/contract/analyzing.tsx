@@ -265,7 +265,7 @@ export default function ContractAnalyzingScreen() {
 
     const progressTimer = setTimeout(() => {
       setActiveIndex((prev) => prev + 1);
-    }, 1500);
+    }, 700);
 
     return () => clearTimeout(progressTimer);
   }, [activeIndex]);

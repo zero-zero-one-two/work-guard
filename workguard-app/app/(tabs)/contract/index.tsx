@@ -108,7 +108,7 @@ export default function ContractUploadScreen() {
         <TouchableOpacity
           style={styles.cameraBtn}
           activeOpacity={0.85}
-          onPress={() => router.push('/contract/camera')}>
+          onPress={() => router.push('/contract-camera')}>
           <Ionicons name="camera-outline" size={22} color="#fff" />
           <Text style={styles.cameraBtnText}>카메라로 촬영하기</Text>
         </TouchableOpacity>
