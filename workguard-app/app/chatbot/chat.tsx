@@ -80,7 +80,7 @@ export default function ChatScreen() {
             <TouchableOpacity
               key={label}
               style={styles.quickReplyBtn}
-              onPress={() => sendMessage(label)}>
+              onPress={() => label === '...' ? router.push('/chatbot/get-help' as any) : sendMessage(label)}>
               <Text style={styles.quickReplyText}>{label}</Text>
             </TouchableOpacity>
           ))}
