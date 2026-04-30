@@ -42,6 +42,7 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="language-select" options={{ headerShown: false }} />
+        <Stack.Screen name="chatbot" options={{ headerShown: false }} />
         <Stack.Screen name="contract-camera" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
