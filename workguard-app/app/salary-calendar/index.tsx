@@ -58,7 +58,7 @@ export default function SalaryCalendarScreen() {
       {/* ── 상단 고정: 헤더 + 금액 + 캘린더 ── */}
       <View>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/(tabs)')}>
             <Ionicons name="chevron-back" size={22} color="#11181C" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>April</Text>
@@ -191,8 +191,15 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 36,
     height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerTitle: {
     flex: 1,
