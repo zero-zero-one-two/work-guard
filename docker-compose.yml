@@ -8,7 +8,7 @@ services:
       - 6333:6333 # tcp
       - 6334:6334 # grpc
     volumes:
-      - ./qdrant_data:/qdrant/storage
+      - qdrant_data:/qdrant/storage
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
@@ -19,6 +19,8 @@ services:
   embedder:
     build: .
     container_name: workguard_embedder
+    ports:
+      - 8000:8000
     env_file:
       - .env
     environment:
@@ -28,9 +30,9 @@ services:
       - DOCUMENTS_DIR=/app/documents
       - CHUNK_SIZE=1200
       - CHUNK_OVERLAP=320
-      - DENSE_MODEL=BAAI/bge-base-en-v1.5
+      - DENSE_MODEL=solar-embedding-1-large-passage
       - SPARSE_MODEL=Qdrant/bm25
-      - DENSE_DIM=768
+      - DENSE_DIM=4096
       - BATCH_SIZE=32
       - LOG_LEVEL=INFO
     depends_on:
