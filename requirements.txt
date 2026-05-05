@@ -13,3 +13,10 @@ langchain-text-splitters>=0.2.0
 
 # tiktoken (정확한 토큰 수 기반 청킹)
 tiktoken>=0.7.0
+
+# OCR API
+fastapi>=0.117.1
+uvicorn>=0.37.0
+python-multipart>=0.0.20
+requests>=2.32.5
+python-dotenv>=1.0.1

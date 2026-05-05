@@ -41,6 +41,26 @@ services:
     volumes:
       - ./documents:/app/documents:ro
 
+  api:
+    build: .
+    container_name: workguard_ocr_api
+    command: uvicorn src.ocr.api:app --host 0.0.0.0 --port 8000
+    ports:
+      - 8000:8000
+    env_file:
+      - .env
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - COLLECTION_NAME=workguard_docs
+      - OCR_RAW_DIR=/app/uploads/ocr
+      - OCR_RESULT_DIR=/app/ocr_results
+    depends_on:
+      - qdrant
+    restart: unless-stopped
+    volumes:
+      - ./uploads:/app/uploads
+      - ./ocr_results:/app/ocr_results
+
 volumes:
   qdrant_data:
-
