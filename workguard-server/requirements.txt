@@ -1,0 +1,24 @@
+# Web framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+
+# DB
+sqlmodel>=0.0.21
+
+# OCR
+requests>=2.32.0
+
+# RAG
+qdrant-client>=1.9.0
+fastembed>=0.3.6
+langchain-community>=0.2.0
+langchain-text-splitters>=0.2.0
+tiktoken>=0.7.0
+
+# ENV
+python-dotenv>=1.0.0
+python-multipart>=0.0.9
+
+# LLM backends (하나만 설치해도 됨)
+# MLX (Apple Silicon only) — pip install mlx-lm
+# GGUF                     — pip install llama-cpp-python
