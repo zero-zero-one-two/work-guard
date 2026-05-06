@@ -1,0 +1,38 @@
+version: "3.9"
+
+# 이미 실행 중인 Qdrant 컨테이너를 재사용합니다.
+# Qdrant를 새로 띄우려면 아래 주석을 해제하세요.
+#
+# services:
+#   qdrant:
+#     image: qdrant/qdrant:v1.17
+#     container_name: qdrant
+#     ports:
+#       - "6333:6333"
+#     volumes:
+#       - qdrant_data:/qdrant/storage
+#     restart: unless-stopped
+
+services:
+  server:
+    build: .
+    container_name: workguard_server
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Docker 컨테이너 안에서는 host.docker.internal로 로컬 Qdrant에 접근
+      - QDRANT_HOST=host.docker.internal
+      - DOCUMENTS_DIR=/app/documents
+      - DB_PATH=/app/data/workguard.db
+    volumes:
+      - ./data:/app/data          # SQLite DB 영속화
+      - ./documents:/app/documents:ro  # 법령 문서 (읽기 전용)
+    restart: unless-stopped
+    extra_hosts:
+      # Mac / Windows에서 host.docker.internal 명시적 등록
+      - "host.docker.internal:host-gateway"
+
+# volumes:
+#   qdrant_data:
