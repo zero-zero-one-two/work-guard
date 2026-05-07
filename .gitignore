@@ -8,3 +8,4 @@ ocr_results/
 .env
 dev/
 .venv
+*.md
