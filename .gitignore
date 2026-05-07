@@ -2,7 +2,9 @@ qdrant_data/
 __pycache__/
 .DS_Store
 *.pyc
-.env
 documents/*.md
 uploads/
 ocr_results/
+.env
+dev/
+.venv
