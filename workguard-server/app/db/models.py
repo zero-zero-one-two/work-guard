@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+from datetime import date as DateType
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 from uuid import uuid4
 
 from sqlmodel import Field, SQLModel
@@ -31,3 +32,18 @@ class ContractAnalysis(SQLModel, table=True):
     @property
     def items(self) -> list[dict[str, Any]]:
         return json.loads(self.items_json)
+
+class WorkLog(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
+    log_date: DateType = Field(index=True)
+    
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    fee: Optional[int] = None
+    overtime_hours: float = 0.0
+    is_night_shift: bool = False
+    is_holiday_work: bool = False
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
