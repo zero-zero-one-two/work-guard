@@ -55,16 +55,15 @@ export default function SalaryCalendarScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ── 상단 고정: 헤더 + 금액 + 캘린더 ── */}
-      <View>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/(tabs)')}>
-            <Ionicons name="chevron-back" size={22} color="#11181C" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>April</Text>
-          <View style={styles.headerSpacer} />
-        </View>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/(tabs)')}>
+          <Ionicons name="chevron-back" size={22} color="#11181C" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>April</Text>
+        <View style={styles.headerSpacer} />
+      </View>
 
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.amountSection}>
           <Text style={styles.amount}>₩1,842,000</Text>
           <Text style={styles.amountSub}>expected per month</Text>
@@ -119,57 +118,53 @@ export default function SalaryCalendarScreen() {
             ))}
           </View>
         </View>
-      </View>
 
-      {/* ── 하단 독립 스크롤: 이번 주 스케줄 ── */}
-      <ScrollView
-        style={styles.scheduleScroll}
-        contentContainerStyle={styles.scheduleContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {WEEK_SCHEDULE.map((item) =>
-          item.type === 'work' ? (
-            <TouchableOpacity
-              key={item.date}
-              style={styles.scheduleCard}
-              onPress={() => handleDayPress(item.date)}
-              activeOpacity={0.75}
-            >
-              <View style={styles.scheduleRow}>
-                <Text style={styles.scheduleDay}>{item.day}</Text>
-                <Text style={styles.scheduleDate}>{item.date}</Text>
-                <Text style={styles.scheduleTime}>{item.timeRange}</Text>
-                <View style={styles.hoursBadge}>
-                  <Text style={styles.hoursText}>{item.hours}h</Text>
+        {/* ── 이번 주 스케줄 ── */}
+        <View style={styles.scheduleContent}>
+          {WEEK_SCHEDULE.map((item) =>
+            item.type === 'work' ? (
+              <TouchableOpacity
+                key={item.date}
+                style={styles.scheduleCard}
+                onPress={() => handleDayPress(item.date)}
+                activeOpacity={0.75}
+              >
+                <View style={styles.scheduleRow}>
+                  <Text style={styles.scheduleDay}>{item.day}</Text>
+                  <Text style={styles.scheduleDate}>{item.date}</Text>
+                  <Text style={styles.scheduleTime}>{item.timeRange}</Text>
+                  <View style={styles.hoursBadge}>
+                    <Text style={styles.hoursText}>{item.hours}h</Text>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.progressTrack}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${Math.round((item.hours / MAX_HOURS) * 100)}%` },
-                  ]}
-                />
-              </View>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              key={item.date}
-              style={[styles.scheduleCard, styles.offCard]}
-              onPress={() => handleDayPress(item.date)}
-              activeOpacity={0.75}
-            >
-              <View style={[styles.scheduleRow, { marginBottom: 0 }]}>
-                <Text style={[styles.scheduleDay, styles.offDayText]}>{item.day}</Text>
-                <Text style={[styles.scheduleDate, styles.offDateText]}>{item.date}</Text>
-                <View style={{ flex: 1 }} />
-                <View style={styles.offBadge}>
-                  <Text style={styles.offBadgeText}>Off</Text>
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${Math.round((item.hours / MAX_HOURS) * 100)}%` },
+                    ]}
+                  />
                 </View>
-              </View>
-            </TouchableOpacity>
-          )
-        )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                key={item.date}
+                style={[styles.scheduleCard, styles.offCard]}
+                onPress={() => handleDayPress(item.date)}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.scheduleRow, { marginBottom: 0 }]}>
+                  <Text style={[styles.scheduleDay, styles.offDayText]}>{item.day}</Text>
+                  <Text style={[styles.scheduleDate, styles.offDateText]}>{item.date}</Text>
+                  <View style={{ flex: 1 }} />
+                  <View style={styles.offBadge}>
+                    <Text style={styles.offBadgeText}>Off</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            )
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -297,12 +292,11 @@ const styles = StyleSheet.create({
     color: '#687076',
   },
 
-  // Schedule scroll section (독립 스크롤)
-  scheduleScroll: {
-    flex: 1,
-    marginTop: 16,
+  scrollContent: {
+    paddingBottom: 32,
   },
   scheduleContent: {
+    marginTop: 16,
     paddingHorizontal: 16,
     paddingBottom: 16,
     gap: 10,
