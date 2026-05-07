@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.17
+    container_name: qdrant
+    ports:
+      - 6333:6333 # tcp
+      - 6334:6334 # grpc
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  embedder:
+    build: .
+    container_name: workguard_embedder
+    ports:
+      - 8000:8000
+    env_file:
+      - .env
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - COLLECTION_NAME=workguard_docs
+      - DOCUMENTS_DIR=/app/documents
+      - CHUNK_SIZE=1200
+      - CHUNK_OVERLAP=320
+      - DENSE_MODEL=solar-embedding-1-large-passage
+      - SPARSE_MODEL=Qdrant/bm25
+      - DENSE_DIM=4096
+      - BATCH_SIZE=32
+      - LOG_LEVEL=INFO
+    depends_on:
+      - qdrant
+    restart: no
+    volumes:
+      - ./documents:/app/documents:ro
+
+  api:
+    build: .
+    container_name: workguard_ocr_api
+    command: uvicorn src.ocr.api:app --host 0.0.0.0 --port 8000
+    ports:
+      - 8000:8000
+    env_file:
+      - .env
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - COLLECTION_NAME=workguard_docs
+      - OCR_RAW_DIR=/app/uploads/ocr
+      - OCR_RESULT_DIR=/app/ocr_results
+    depends_on:
+      - qdrant
+    restart: unless-stopped
+    volumes:
+      - ./uploads:/app/uploads
+      - ./ocr_results:/app/ocr_results
+
+volumes:
+  qdrant_data:
