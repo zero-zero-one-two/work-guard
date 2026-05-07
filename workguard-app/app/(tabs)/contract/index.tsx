@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { TabActions, useNavigation } from '@react-navigation/native';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { ContractLayout } from '@/components/contract/contract-layout';
 
@@ -49,6 +50,18 @@ function DocumentMockup() {
 
 export default function ContractUploadScreen() {
   const navigation = useNavigation();
+  async function pickFromGallery() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      selectionLimit: 0,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      router.push('/contract/analyzing');
+    }
+  }
+
   const handleClose = () => {
     const parent = navigation.getParent();
 
@@ -122,11 +135,14 @@ export default function ContractUploadScreen() {
 
         {/* 보조 버튼 */}
         <View style={styles.secondaryRow}>
-          <TouchableOpacity style={styles.secondaryBtn} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.secondaryBtn} activeOpacity={0.8} onPress={pickFromGallery}>
             <Ionicons name="image-outline" size={24} color="#11181C" />
             <Text style={styles.secondaryBtnText}>사진 보관함</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryBtn} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.secondaryBtn}
+            activeOpacity={0.8}
+            onPress={() => Alert.alert('준비 중이에요', '파일 선택 기능은 곧 추가될 예정이에요.')}>
             <Ionicons name="document-outline" size={24} color="#11181C" />
             <Text style={styles.secondaryBtnText}>파일 앱에서 선택</Text>
           </TouchableOpacity>
