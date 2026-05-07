@@ -38,6 +38,18 @@
             "backgroundColor": "#3182F6"
           }
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "계약서 촬영을 위해 카메라 접근을 허용해 주세요."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "계약서 사진 선택을 위해 사진 보관함 접근을 허용해 주세요."
+        }
       ]
     ],
     "experiments": {
