@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   Modal,
   NativeScrollEvent,
@@ -16,6 +16,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Brand } from '@/constants/theme';
+import { API_BASE_URL } from '@/constants/api';
+
 
 // ── Overtime slider constants ──────────────────────────────────────
 const MAX_OT = 8;
@@ -42,15 +44,6 @@ const DAY_NAMES: Record<string, string> = {
   '24': 'Sunday', '25': 'Monday', '26': 'Tuesday', '27': 'Wednesday',
   '28': 'Thursday', '29': 'Friday', '30': 'Saturday',
 };
-
-const WORK_DATA: Record<string, { start: string; end: string; fee: string }> = {
-  '21': { start: '09:00', end: '18:00', fee: '₩135,000' },
-  '22': { start: '09:00', end: '18:00', fee: '₩135,000' },
-  '23': { start: '09:00', end: '14:00', fee: '₩75,000' },
-  '24': { start: '09:00', end: '18:00', fee: '₩135,000' },
-};
-
-const DEFAULT_WORK = { start: '09:00', end: '18:00', fee: '₩135,000' };
 
 // ── Helpers ─────────────────────────────────────────────────────────
 function parseTime(timeStr: string) {
@@ -184,17 +177,17 @@ export default function DayDetailScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
   const router = useRouter();
 
-  const dateStr = Array.isArray(date) ? date[0] : (date ?? '24');
-  const work = WORK_DATA[dateStr] ?? DEFAULT_WORK;
+  const dateStr = Array.isArray(date) ? date[0] : (date ?? '1');
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
   const dayName = DAY_NAMES[dateStr] ?? 'Thursday';
 
   // 시간 상태
-  const initStart = parseTime(work.start);
-  const initEnd = parseTime(work.end);
-  const [startH, setStartH] = useState(initStart.h);
-  const [startMIdx, setStartMIdx] = useState(initStart.mIdx);
-  const [endH, setEndH] = useState(initEnd.h);
-  const [endMIdx, setEndMIdx] = useState(initEnd.mIdx);
+  const [startH, setStartH] = useState(9);
+  const [startMIdx, setStartMIdx] = useState(0);
+  const [endH, setEndH] = useState(18);
+  const [endMIdx, setEndMIdx] = useState(0);
 
   // 피커 상태
   const [pickerKey, setPickerKey] = useState(0);
@@ -211,6 +204,35 @@ export default function DayDetailScreen() {
   const [overtime, setOvertime] = useState(2.5);
   const [nightShift, setNightShift] = useState(false);
   const [holidayWork, setHolidayWork] = useState(true);
+  const [logId, setLogId] = useState<string | null>(null);
+  const [fee, setFee] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchLog = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/work-logs/${year}/${month}/${dateStr}`);
+        if (res.ok) {
+          const data = await res.json();
+          setLogId(data.id);
+          if (data.start_time) {
+            const s = parseTime(data.start_time);
+            setStartH(s.h);
+            setStartMIdx(s.mIdx);
+          }
+          if (data.end_time) {
+            const e = parseTime(data.end_time);
+            setEndH(e.h);
+            setEndMIdx(e.mIdx);
+          }
+          setOvertime(data.overtime_hours);
+          setNightShift(data.is_night_shift);
+          setHolidayWork(data.is_holiday_work);
+          setFee(data.fee);
+        }
+      } catch (e) {}
+    };
+    fetchLog();
+  }, [dateStr, year, month]);
 
   // DURATION: start/end 기반 자동 계산
   const diffMin = Math.max(0, (endH * 60 + endMIdx * 5) - (startH * 60 + startMIdx * 5));
@@ -238,6 +260,35 @@ export default function DayDetailScreen() {
       setEndMIdx(mIdx);
     }
     setPickerVisible(false);
+  };
+
+  const handleSave = async () => {
+    const logDate = `${year}-${String(month).padStart(2, '0')}-${dateStr.padStart(2, '0')}`;
+    const body = JSON.stringify({
+      log_date: logDate,
+      start_time: formatTime(startH, startMIdx),
+      end_time: formatTime(endH, endMIdx),
+      fee,
+      overtime_hours: overtime,
+      is_night_shift: nightShift,
+      is_holiday_work: holidayWork,
+    });
+
+    if (logId) {
+      await fetch(`${API_BASE_URL}/work-logs/${logId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+    } else {
+      await fetch(`${API_BASE_URL}/work-logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+    }
+
+    router.back();
   };
 
   return (
@@ -286,7 +337,7 @@ export default function DayDetailScreen() {
               <Ionicons name="receipt-outline" size={17} color={Brand.primary} />
             </View>
             <Text style={styles.infoLabel}>FEE</Text>
-            <Text style={styles.infoValue}>{work.fee}</Text>
+            <Text style={styles.infoValue}>{fee ? `₩${fee.toLocaleString()}` : '-'}</Text>
             <Ionicons name="chevron-forward" size={16} color="#C4C9CF" />
           </TouchableOpacity>
 
@@ -362,7 +413,7 @@ export default function DayDetailScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.saveBtn} onPress={() => router.back()} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.85}>
           <Text style={styles.saveBtnText}>Save to Calendar</Text>
         </TouchableOpacity>
       </ScrollView>
