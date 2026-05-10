@@ -81,7 +81,7 @@ export default function SalaryCalendarScreen() {
   const dayTypeMap: Record<number, DayType> = {};
   workLogs.forEach((log) => {
     const day = parseInt(log.log_date.split('-')[2], 10);
-    dayTypeMap[day] = log.overtime_hours > 0 || log.is_holiday_work ? 'overtime' : 'work';
+    dayTypeMap[day] = log.overtime_hours > 0 ? 'overtime' : 'work';
   });
 
   // API 데이터로 스케줄 생성
@@ -99,7 +99,7 @@ export default function SalaryCalendarScreen() {
   });
 
   const handleDayPress = (day: number) => {
-    router.push(`/salary-calendar/${day}`);
+    router.push(`/(tabs)/salary-calendar/${day}`);
   };
 
   return (

@@ -11,3 +11,4 @@ dev/
 *.md
 *.db
 data/
+workguard-server/data/
