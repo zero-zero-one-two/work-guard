@@ -383,7 +383,7 @@ export default function DayDetailScreen() {
         </View>
 
         {/* Toggles */}
-        <View style={[styles.card, { marginTop: 0 }]}>
+        <View style={[styles.card, { marginTop: 12 }]}>
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
               <Text style={styles.toggleTitle}>Night Shift</Text>
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
   otValueNumber: { fontSize: 52, fontWeight: '800', color: '#11181C', lineHeight: 58, letterSpacing: -1 },
   otValueUnit: { fontSize: 22, fontWeight: '600', color: '#11181C', marginBottom: 8 },
 
-  sliderWrapper: { position: 'relative', height: 54, marginHorizontal: 20, marginBottom: 4 },
+  sliderWrapper: { position: 'relative', height: 54, marginHorizontal: 20, marginBottom: 20 },
   sliderTrackBg: { position: 'absolute', left: 0, right: 0, top: TRACK_TOP, height: TRACK_HEIGHT, backgroundColor: '#E5E7EB', borderRadius: TRACK_HEIGHT / 2 },
   sliderTrackFill: { position: 'absolute', left: 0, top: TRACK_TOP, height: TRACK_HEIGHT, backgroundColor: Brand.primary, borderRadius: TRACK_HEIGHT / 2 },
   sliderThumb: {
