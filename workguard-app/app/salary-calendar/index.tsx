@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { API_BASE_URL } from '@/constants/api';
 import { Brand } from '@/constants/theme';
 
 type DayType = 'work' | 'overtime' | 'off';
@@ -11,32 +13,36 @@ type WorkItem = { day: string; date: number; type: 'work'; timeRange: string; ho
 type OffItem = { day: string; date: number; type: 'off' };
 type ScheduleItem = WorkItem | OffItem;
 
-const DAY_TYPE_MAP: Record<number, DayType> = {
-  3: 'work', 4: 'work', 11: 'work', 18: 'work', 19: 'work',
-  5: 'overtime', 6: 'overtime', 14: 'overtime', 15: 'overtime',
-  21: 'overtime', 27: 'overtime', 28: 'overtime',
-  7: 'off', 8: 'off', 25: 'off',
+type WorkLog = {
+  id: string;
+  log_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  overtime_hours: number;
+  is_night_shift: boolean;
+  is_holiday_work: boolean;
 };
-
-const WEEKS: (number | null)[][] = [
-  [null, null, null, null, 1, 2, null],
-  [3, 4, 5, 6, 7, 8, 9],
-  [10, 11, 12, 13, 14, 15, 16],
-  [17, 18, 19, 20, 21, 22, 23],
-  [24, 25, 26, 27, 28, 29, 30],
-];
 
 const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const WEEK_SCHEDULE: ScheduleItem[] = [
-  { day: 'Mon', date: 21, type: 'work', timeRange: '9:00-18:00', hours: 9 },
-  { day: 'Tue', date: 22, type: 'work', timeRange: '9:00-18:00', hours: 9 },
-  { day: 'Wed', date: 23, type: 'work', timeRange: '9:00-14:00', hours: 5 },
-  { day: 'Thu', date: 24, type: 'work', timeRange: '12:00-18:00', hours: 6 },
-  { day: 'Fri', date: 25, type: 'off' },
-  { day: 'Sat', date: 26, type: 'off' },
-  { day: 'Sun', date: 27, type: 'off' },
-];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+
+function buildWeeks(year: number, month: number): (number | null)[][] {
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const weeks: (number | null)[][] = [];
+  let week: (number | null)[] = Array(firstDay).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    week.push(d);
+    if (week.length === 7) { weeks.push(week); week = []; }
+  }
+  if (week.length > 0) {
+    while (week.length < 7) week.push(null);
+    weeks.push(week);
+  }
+  return weeks;
+}
 
 const DAY_COLORS: Record<DayType, string> = {
   work: '#FFE4E4',
@@ -48,6 +54,49 @@ const MAX_HOURS = 9;
 
 export default function SalaryCalendarScreen() {
   const router = useRouter();
+  const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
+
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const weeks = buildWeeks(year, month);
+  const monthLabel = MONTH_NAMES[month - 1];
+
+  useFocusEffect(
+    useCallback(() => {
+      const fetchLogs = async () => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/work-logs/${year}/${month}`);
+          if (res.ok) {
+            const data = await res.json();
+            setWorkLogs(data);
+          }
+        } catch (e) {}
+      };
+      fetchLogs();
+    }, [year, month]),
+  );
+
+  // API 데이터로 달력 색상 결정
+  const dayTypeMap: Record<number, DayType> = {};
+  workLogs.forEach((log) => {
+    const day = parseInt(log.log_date.split('-')[2], 10);
+    dayTypeMap[day] = log.overtime_hours > 0 || log.is_holiday_work ? 'overtime' : 'work';
+  });
+
+  // API 데이터로 스케줄 생성
+  const scheduleItems: ScheduleItem[] = workLogs.map((log) => {
+    const day = parseInt(log.log_date.split('-')[2], 10);
+    const dayOfWeek = new Date(log.log_date).getDay();
+    const dayName = WEEK_DAYS[dayOfWeek];
+    if (log.start_time && log.end_time) {
+      const [sh, sm] = log.start_time.split(':').map(Number);
+      const [eh, em] = log.end_time.split(':').map(Number);
+      const hours = Math.max(0, Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 60));
+      return { day: dayName, date: day, type: 'work', timeRange: `${log.start_time}-${log.end_time}`, hours };
+    }
+    return { day: dayName, date: day, type: 'off' };
+  });
 
   const handleDayPress = (day: number) => {
     router.push(`/salary-calendar/${day}`);
@@ -61,7 +110,7 @@ export default function SalaryCalendarScreen() {
           <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/(tabs)')}>
             <Ionicons name="chevron-back" size={22} color="#11181C" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>April</Text>
+          <Text style={styles.headerTitle}>{monthLabel}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -81,25 +130,22 @@ export default function SalaryCalendarScreen() {
           </View>
 
           {/* 날짜 그리드 */}
-          {WEEKS.map((week, i) => (
+          {weeks.map((week, i) => (
             <View key={i} style={styles.weekRow}>
               {week.map((day, j) => {
-                const type = day != null ? DAY_TYPE_MAP[day] : undefined;
+                const type = day != null ? dayTypeMap[day] : undefined;
                 const bg = type ? DAY_COLORS[type] : undefined;
-                const tappable = day != null && type != null;
-                return tappable ? (
+                return day != null ? (
                   <TouchableOpacity
                     key={j}
-                    style={[styles.cell, styles.dateCell, { backgroundColor: bg, borderRadius: 8 }]}
-                    onPress={() => handleDayPress(day!)}
+                    style={[styles.cell, styles.dateCell, bg ? { backgroundColor: bg, borderRadius: 8 } : undefined]}
+                    onPress={() => handleDayPress(day)}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.dateText}>{day}</Text>
                   </TouchableOpacity>
                 ) : (
-                  <View key={j} style={[styles.cell, styles.dateCell]}>
-                    {day != null && <Text style={styles.dateText}>{day}</Text>}
-                  </View>
+                  <View key={j} style={[styles.cell, styles.dateCell]} />
                 );
               })}
             </View>
@@ -127,7 +173,7 @@ export default function SalaryCalendarScreen() {
         contentContainerStyle={styles.scheduleContent}
         showsVerticalScrollIndicator={false}
       >
-        {WEEK_SCHEDULE.map((item) =>
+        {scheduleItems.map((item) =>
           item.type === 'work' ? (
             <TouchableOpacity
               key={item.date}
