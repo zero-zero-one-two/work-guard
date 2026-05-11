@@ -201,9 +201,9 @@ export default function DayDetailScreen() {
   const minWheelRef = useRef<WheelRef>(null);
 
   // 기타 상태
-  const [overtime, setOvertime] = useState(2.5);
+  const [overtime, setOvertime] = useState(0);
   const [nightShift, setNightShift] = useState(false);
-  const [holidayWork, setHolidayWork] = useState(true);
+  const [holidayWork, setHolidayWork] = useState(false);
   const [logId, setLogId] = useState<string | null>(null);
   const [fee, setFee] = useState<number | null>(null);
 
