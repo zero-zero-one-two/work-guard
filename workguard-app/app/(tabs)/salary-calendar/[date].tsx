@@ -301,7 +301,7 @@ export default function DayDetailScreen() {
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={22} color="#11181C" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>4/{dateStr}</Text>
+          <Text style={styles.headerTitle}>{month}/{dateStr}</Text>
           <View style={styles.headerSpacer} />
         </View>
 

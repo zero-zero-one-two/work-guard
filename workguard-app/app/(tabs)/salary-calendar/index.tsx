@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { API_BASE_URL } from '@/constants/api';
@@ -16,6 +16,7 @@ type WorkLog = {
   log_date: string;
   start_time: string | null;
   end_time: string | null;
+  fee: number | null;
   overtime_hours: number;
   is_night_shift: boolean;
   is_holiday_work: boolean;
@@ -74,9 +75,13 @@ export default function SalaryCalendarScreen() {
     }, [year, month]),
   );
 
-  // API 데이터로 달력 색상 결정
+  // API 데이터로 달력 색상 결정 (실제 근무 시간이 있는 경우만 색상 표시)
   const dayTypeMap: Record<number, DayType> = {};
   workLogs.forEach((log) => {
+    if (!log.start_time || !log.end_time) return;
+    const [sh, sm] = log.start_time.split(':').map(Number);
+    const [eh, em] = log.end_time.split(':').map(Number);
+    if ((eh * 60 + em) - (sh * 60 + sm) <= 0) return;
     const day = parseInt(log.log_date.split('-')[2], 10);
     dayTypeMap[day] = log.overtime_hours > 0 ? 'overtime' : 'work';
   });
@@ -104,6 +109,16 @@ export default function SalaryCalendarScreen() {
     return { day: dayName, date, hasWork: false, timeRange: '', hours: 0 };
   });
 
+  const totalFee = workLogs.reduce((sum, log) => sum + (log.fee ?? 0), 0);
+  const hasFee = workLogs.some((l) => l.fee != null && l.fee > 0);
+  const hasWorkedDays = scheduleItems.some((item) => item.hasWork);
+
+  useEffect(() => {
+    if (hasWorkedDays && !hasFee) {
+      Alert.alert('급여 정보 없음', '등록된 일당(fee) 정보가 없습니다.\n근무 내역에서 급여를 등록해주세요.');
+    }
+  }, [workLogs]);
+
   const handleDayPress = (day: number) => {
     router.push(`/(tabs)/salary-calendar/${day}`);
   };
@@ -121,7 +136,7 @@ export default function SalaryCalendarScreen() {
         </View>
 
         <View style={styles.amountSection}>
-          <Text style={styles.amount}>₩1,842,000</Text>
+          <Text style={styles.amount}>{hasFee ? `₩${totalFee.toLocaleString()}` : '-'}</Text>
           <Text style={styles.amountSub}>expected per month</Text>
         </View>
 
