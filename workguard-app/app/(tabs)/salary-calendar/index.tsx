@@ -43,8 +43,8 @@ function buildWeeks(year: number, month: number): (number | null)[][] {
 }
 
 const DAY_COLORS: Record<DayType, string> = {
-  work: '#FFE4E4',
-  overtime: '#FEF3C7',
+  work: '#DCFCE7',
+  overtime: '#FFE4E4',
 };
 
 const MAX_HOURS = 9;
@@ -81,13 +81,18 @@ export default function SalaryCalendarScreen() {
     dayTypeMap[day] = log.overtime_hours > 0 ? 'overtime' : 'work';
   });
 
-  // 이번 달 전체 날짜 기반으로 스케줄 생성
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const scheduleItems: ScheduleItem[] = Array.from({ length: daysInMonth }, (_, i) => {
-    const date = i + 1;
-    const dayOfWeek = new Date(year, month - 1, date).getDay();
+  // 현재 날짜가 포함된 주(일~토) 7일 스케줄 생성
+  const todayDow = today.getDay();
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - todayDow);
+  const scheduleItems: ScheduleItem[] = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    const date = d.getDate();
+    const dayOfWeek = d.getDay();
     const dayName = WEEK_DAYS[dayOfWeek];
-    const log = workLogs.find((l) => parseInt(l.log_date.split('-')[2], 10) === date);
+    const logDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+    const log = workLogs.find((l) => l.log_date === logDate);
     if (log && log.start_time && log.end_time) {
       const [sh, sm] = log.start_time.split(':').map(Number);
       const [eh, em] = log.end_time.split(':').map(Number);
