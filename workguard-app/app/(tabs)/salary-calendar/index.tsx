@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   },
   amountSub: {
     fontSize: 14,
-    color: Brand.primary,
+    color: '#11181C',
     marginTop: 2,
   },
 

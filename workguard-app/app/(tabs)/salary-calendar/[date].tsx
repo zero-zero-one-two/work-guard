@@ -476,8 +476,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, marginTop: 20, marginBottom: 10,
   },
-  sectionTitleBlue: { fontSize: 14, fontWeight: '700', fontStyle: 'italic', color: Brand.primary, letterSpacing: 0.5 },
-  sectionTitleDark: { fontSize: 14, fontWeight: '700', color: '#11181C', letterSpacing: 0.5 },
+  sectionTitleBlue: { fontSize: 16, fontWeight: '700', color: Brand.primary, letterSpacing: 0.5 },
+  sectionTitleDark: { fontSize: 16, fontWeight: '700', color: Brand.primary, letterSpacing: 0.5 },
   sectionSubtitle: { fontSize: 13, color: '#9BA1A6' },
 
   card: {
