@@ -1,251 +1,107 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { TabActions, useNavigation } from '@react-navigation/native';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { ContractLayout } from '@/components/contract/contract-layout';
+import { contractStore, type AnalysisItem } from '@/store/contractStore';
 
-type ResultStatus = 'violation' | 'warning' | 'normal';
-type ResultVariant = 'issues' | 'clean';
-
-interface SummaryChipData {
-  label: string;
-  count: number;
-  status: ResultStatus;
-}
-
-interface DetailItem {
-  title: string;
-  law: string;
-  description: string;
-  status: ResultStatus;
-  actionLabel?: string;
-}
-
-interface ResultData {
-  summaryEyebrow: string;
-  summaryTitle: string;
-  summaryBody?: string;
-  summaryEmoji?: string;
-  variant: ResultVariant;
-  chips: SummaryChipData[];
-  items: DetailItem[];
-}
-
-const RESULT_DATA: Record<ResultVariant, ResultData> = {
-  issues: {
-    summaryEyebrow: '분석 완료',
-    summaryTitle: '위반 사항\n3건 발견 됐어요',
-    variant: 'issues',
-    chips: [
-      { label: '위반', count: 1, status: 'violation' },
-      { label: '경고', count: 2, status: 'warning' },
-      { label: '정상', count: 1, status: 'normal' },
-    ],
-    items: [
-      {
-        status: 'violation',
-        law: '근로기준법 제56조',
-        title: '연장근무 수당 미명시',
-        description:
-          '연장근무 시 통상임금의 1.5배 이상을 지급해야 하나, 계약서 내 관련 조항이 없어요.',
-        actionLabel: '신고 방법 보기',
-      },
-      {
-        status: 'warning',
-        law: '근로기준법 제50조',
-        title: '주 52시간 초과 근무 명시',
-        description: '계약서에 주 52시간을 초과한 근무 일정이 기재되어 있어요.',
-        actionLabel: '대응 방법 보기',
-      },
-      {
-        status: 'warning',
-        law: '근로기준법 제55조',
-        title: '주휴일 불명확',
-        description:
-          '주 1회 이상 유급 휴일이 보장되어야 하나, 계약서 내 명시가 불분명해요.',
-        actionLabel: '자세히 보기',
-      },
-      {
-        status: 'normal',
-        law: '최저임금법 제6조',
-        title: '최저임금 기준 충족',
-        description: '계약 시급 ₩ 10,030 - 2026년 최저임금 기준에 충족해요.',
-      },
-    ],
-  },
-  clean: {
-    summaryEyebrow: '분석 완료',
-    summaryTitle: '이상 없어요!',
-    summaryBody: '계약서의 모든 항목이\n한국 노동법 기준에 적합해요.',
-    summaryEmoji: '🎉',
-    variant: 'clean',
-    chips: [{ label: '정상', count: 5, status: 'normal' }],
-    items: [
-      {
-        status: 'normal',
-        law: '근로기준법 제56조',
-        title: '연장 · 야간 · 휴일수당 명시',
-        description: '모든 추가 수당 조항이 계약서에 명확히 기재되어 있어요.',
-      },
-      {
-        status: 'normal',
-        law: '최저임금법 제6조',
-        title: '최저임금 기준 충족',
-        description: '계약 시급 ₩ 10,030 - 2026년 최저임금 기준에 충족해요.',
-      },
-      {
-        status: 'normal',
-        law: '근로기준법 제50조',
-        title: '소정근로시간 적법',
-        description: '주 40시간 이내로 법정 기준에 맞아요.',
-      },
-      {
-        status: 'normal',
-        law: '근로기준법 제50조',
-        title: '주휴일 명시',
-        description: '매주 일요일 유급 휴일로 계약서에 명시되어 있어요.',
-      },
-      {
-        status: 'normal',
-        law: '근로기준법 제17조',
-        title: '계약 필수 항목 모두 포함',
-        description: '임금 · 근로시간 · 업무 내용 등 필수 항목이 모두 기재되어 있어요.',
-      },
-    ],
-  },
-};
+type ResultStatus = 'violation' | 'warning' | 'normal' | 'unknown';
 
 function getStatusPalette(status: ResultStatus) {
   switch (status) {
     case 'violation':
-      return {
-        line: '#EA2F14',
-        badgeBg: '#FFF0EA',
-        badgeText: '#EA2F14',
-        action: '#EA2F14',
-      };
+      return { line: '#EA2F14', badgeBg: '#FFF0EA', badgeText: '#EA2F14', action: '#EA2F14' };
     case 'warning':
-      return {
-        line: '#E57B11',
-        badgeBg: '#FFF4E3',
-        badgeText: '#C56A0B',
-        action: '#E57B11',
-      };
+      return { line: '#E57B11', badgeBg: '#FFF4E3', badgeText: '#C56A0B', action: '#E57B11' };
     case 'normal':
-      return {
-        line: '#1F8E39',
-        badgeBg: '#E8F8EA',
-        badgeText: '#1F8E39',
-        action: '#1F8E39',
-      };
+      return { line: '#1F8E39', badgeBg: '#E8F8EA', badgeText: '#1F8E39', action: '#1F8E39' };
+    case 'unknown':
+      return { line: '#9BA1A6', badgeBg: '#F1F3F5', badgeText: '#687076', action: '#687076' };
   }
 }
 
 function getStatusLabel(status: ResultStatus) {
   switch (status) {
-    case 'violation':
-      return '위반';
-    case 'warning':
-      return '경고';
-    case 'normal':
-      return '정상';
+    case 'violation': return '위반';
+    case 'warning':   return '경고';
+    case 'normal':    return '정상';
+    case 'unknown':   return '확인불가';
   }
 }
 
-function SummaryChip({ chip }: { chip: SummaryChipData }) {
-  const palette = getStatusPalette(chip.status);
-
-  return (
-    <View style={[styles.summaryChip, { backgroundColor: palette.badgeBg }]}>
-      <Text style={[styles.summaryChipText, { color: palette.badgeText }]}>
-        {chip.label} {chip.count}건
-      </Text>
-    </View>
-  );
-}
-
-function ResultSummaryCard({ data }: { data: ResultData }) {
-  const isClean = data.variant === 'clean';
-
-  return (
-    <View style={[styles.summaryCard, isClean ? styles.summaryCardClean : styles.summaryCardIssues]}>
-      <Text style={styles.summaryEyebrow}>{data.summaryEyebrow}</Text>
-      <View style={styles.summaryTitleRow}>
-        <Text style={[styles.summaryTitle, styles.summaryTitleIssues]}>{data.summaryTitle}</Text>
-        {data.summaryEmoji ? <Text style={styles.summaryEmoji}>{data.summaryEmoji}</Text> : null}
-      </View>
-      {data.summaryBody ? <Text style={styles.summaryBody}>{data.summaryBody}</Text> : null}
-      <View style={styles.summaryChipRow}>
-        {data.chips.map((chip) => (
-          <SummaryChip key={`${chip.status}-${chip.label}`} chip={chip} />
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function ResultDetailCard({ item }: { item: DetailItem }) {
-  const palette = getStatusPalette(item.status);
+function ResultDetailCard({ item }: { item: AnalysisItem }) {
+  const status = item.status as ResultStatus;
+  const palette = getStatusPalette(status);
 
   return (
     <View style={[styles.detailCard, { backgroundColor: palette.line }]}>
       <View style={styles.detailCardSurface}>
         <View style={styles.detailCardBody}>
-        <View style={styles.detailHeaderRow}>
-          <View style={[styles.detailStatusBadge, { backgroundColor: palette.badgeBg }]}>
-            <Text style={[styles.detailStatusText, { color: palette.badgeText }]}>
-              {getStatusLabel(item.status)}
-            </Text>
+          <View style={styles.detailHeaderRow}>
+            <View style={[styles.detailStatusBadge, { backgroundColor: palette.badgeBg }]}>
+              <Text style={[styles.detailStatusText, { color: palette.badgeText }]}>
+                {getStatusLabel(status)}
+              </Text>
+            </View>
+            {item.law ? <Text style={styles.detailLaw}>{item.law}</Text> : null}
           </View>
-          <Text style={styles.detailLaw}>{item.law}</Text>
-        </View>
 
-        <Text style={styles.detailTitle}>{item.title}</Text>
-        <Text style={styles.detailDescription}>{item.description}</Text>
+          <Text style={styles.detailTitle}>{item.title}</Text>
+          <Text style={styles.detailDescription}>{item.description}</Text>
 
-        {item.actionLabel ? (
-          <TouchableOpacity activeOpacity={0.8} style={styles.detailAction}>
-            <Text style={[styles.detailActionText, { color: palette.action }]}>{item.actionLabel} →</Text>
-          </TouchableOpacity>
-        ) : null}
+          {item.evidence ? (
+            <Text style={styles.detailEvidence}>📄 {item.evidence}</Text>
+          ) : null}
+
+          {item.actionLabel ? (
+            <TouchableOpacity activeOpacity={0.8} style={styles.detailAction}>
+              <Text style={[styles.detailActionText, { color: palette.action }]}>
+                {item.actionLabel} →
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
     </View>
   );
 }
 
-function FooterCTA() {
-  return (
-    <>
-      <TouchableOpacity style={styles.chatbotCTA} activeOpacity={0.88}>
-        <Ionicons name="chatbubbles-outline" size={28} color="#fff" />
-        <Text style={styles.chatbotCTAText}>챗봇에서 대응 방법 확인하기 →</Text>
-      </TouchableOpacity>
-
-      <View style={styles.disclaimerRow}>
-        <Ionicons name="warning-outline" size={28} color="#8E97A3" />
-        <Text style={styles.disclaimerText}>본 결과는 법률 자문이 아닌 참고용입니다</Text>
-      </View>
-    </>
-  );
-}
-
 export default function ContractResultScreen() {
   const navigation = useNavigation();
-  const params = useLocalSearchParams<{ variant?: string }>();
-  const variant: ResultVariant = params.variant === 'clean' ? 'clean' : 'issues';
-  const data = RESULT_DATA[variant];
-  const handleClose = () => {
-    const parent = navigation.getParent();
+  const result = contractStore.getResult();
+  console.log('[result] contractStore.getResult():', result?.is_clean, '| items:', result?.items?.length);
 
+  const handleClose = () => {
+    contractStore.clear();
+    const parent = navigation.getParent();
     if (parent) {
       parent.dispatch(TabActions.jumpTo('index'));
       return;
     }
-
     router.replace('/');
   };
+
+  if (!result) {
+    return (
+      <ContractLayout step={3} title="결과 확인" rightAction="home"
+        onBack={() => router.replace('/contract')} onRightAction={handleClose}>
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyText}>분석 결과가 없어요.</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => router.replace('/contract')}>
+            <Text style={styles.retryBtnText}>다시 시도하기</Text>
+          </TouchableOpacity>
+        </View>
+      </ContractLayout>
+    );
+  }
+
+  const { is_clean, summary, items } = result;
+  const issueCount = summary.violation + summary.warning;
+
+  const summaryTitle = is_clean
+    ? '이상 없어요!'
+    : `위반 ${summary.violation}건\n경고 ${summary.warning}건 발견됐어요`;
 
   return (
     <ContractLayout
@@ -253,206 +109,154 @@ export default function ContractResultScreen() {
       title="결과 확인"
       rightAction="home"
       onBack={() => router.replace('/contract')}
-      onRightAction={handleClose}
-      rightContent={
-        variant === 'issues' ? (
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => router.replace('/contract/result?variant=clean')}>
-            <Text style={styles.previewActionText}>정상</Text>
-          </TouchableOpacity>
-        ) : null
-      }>
+      onRightAction={handleClose}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator>
-        <ResultSummaryCard data={data} />
 
+        {/* 요약 카드 */}
+        <View style={[styles.summaryCard, is_clean ? styles.summaryCardClean : styles.summaryCardIssues]}>
+          <Text style={styles.summaryEyebrow}>분석 완료</Text>
+          <View style={styles.summaryTitleRow}>
+            <Text style={styles.summaryTitle}>{summaryTitle}</Text>
+            {is_clean ? <Text style={styles.summaryEmoji}>🎉</Text> : null}
+          </View>
+          {is_clean ? (
+            <Text style={styles.summaryBody}>{'계약서의 모든 항목이\n한국 노동법 기준에 적합해요.'}</Text>
+          ) : null}
+          <View style={styles.summaryChipRow}>
+            {summary.violation > 0 && (
+              <View style={[styles.summaryChip, { backgroundColor: '#FFF0EA' }]}>
+                <Text style={[styles.summaryChipText, { color: '#EA2F14' }]}>위반 {summary.violation}건</Text>
+              </View>
+            )}
+            {summary.warning > 0 && (
+              <View style={[styles.summaryChip, { backgroundColor: '#FFF4E3' }]}>
+                <Text style={[styles.summaryChipText, { color: '#C56A0B' }]}>경고 {summary.warning}건</Text>
+              </View>
+            )}
+            {summary.normal > 0 && (
+              <View style={[styles.summaryChip, { backgroundColor: '#E8F8EA' }]}>
+                <Text style={[styles.summaryChipText, { color: '#1F8E39' }]}>정상 {summary.normal}건</Text>
+              </View>
+            )}
+            {summary.unknown > 0 && (
+              <View style={[styles.summaryChip, { backgroundColor: '#F1F3F5' }]}>
+                <Text style={[styles.summaryChipText, { color: '#687076' }]}>확인불가 {summary.unknown}건</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* 항목 카드 */}
         <View style={styles.detailList}>
-          {data.items.map((item) => (
-            <ResultDetailCard key={`${item.status}-${item.title}`} item={item} />
+          {items.map((item) => (
+            <ResultDetailCard key={item.id} item={item} />
           ))}
         </View>
 
-        <FooterCTA />
+        {/* 하단 CTA */}
+        <TouchableOpacity style={styles.chatbotCTA} activeOpacity={0.88}>
+          <Ionicons name="chatbubbles-outline" size={28} color="#fff" />
+          <Text style={styles.chatbotCTAText}>챗봇에서 대응 방법 확인하기 →</Text>
+        </TouchableOpacity>
+
+        <View style={styles.disclaimerRow}>
+          <Ionicons name="warning-outline" size={16} color="#8E97A3" />
+          <Text style={styles.disclaimerText}>본 결과는 법률 자문이 아닌 참고용입니다</Text>
+        </View>
       </ScrollView>
     </ContractLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-  },
+  scrollView: { flex: 1 },
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 32,
     gap: 12,
   },
+
   summaryCard: {
     borderRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 16,
-    minHeight: 188,
+    minHeight: 160,
   },
-  summaryCardIssues: {
-    backgroundColor: '#1B2028',
-  },
-  summaryCardClean: {
-    backgroundColor: '#1F8E39',
-  },
+  summaryCardIssues: { backgroundColor: '#1B2028' },
+  summaryCardClean: { backgroundColor: '#1F8E39' },
   summaryEyebrow: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.72)',
-    marginTop: 4,
-    marginBottom: 8,
+    fontSize: 13, fontWeight: '700',
+    color: 'rgba(255,255,255,0.72)', marginTop: 4, marginBottom: 8,
   },
-  summaryTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-  },
+  summaryTitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
   summaryTitle: {
-    flexShrink: 1,
-    fontSize: 26,
-    lineHeight: 33,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: -0.8,
+    flexShrink: 1, fontSize: 28, lineHeight: 36,
+    fontWeight: '800', color: '#fff', letterSpacing: -0.8,
   },
-  summaryTitleIssues: {
-    fontSize: 33,
-    lineHeight: 41,
-    letterSpacing: -1,
-  },
-  summaryEmoji: {
-    fontSize: 26,
-    lineHeight: 33,
-  },
+  summaryEmoji: { fontSize: 26, lineHeight: 33 },
   summaryBody: {
-    marginTop: 6,
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.9)',
+    marginTop: 6, fontSize: 15, lineHeight: 22,
+    fontWeight: '700', color: 'rgba(255,255,255,0.9)',
   },
-  summaryChipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 20,
-  },
-  summaryChip: {
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  summaryChipText: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  detailList: {
-    gap: 12,
-  },
+  summaryChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 20 },
+  summaryChip: { borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 },
+  summaryChipText: { fontSize: 13, fontWeight: '800' },
+
+  detailList: { gap: 12 },
   detailCard: {
-    overflow: 'hidden',
-    borderRadius: 24,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.04,
-    shadowRadius: 22,
-    elevation: 2,
+    overflow: 'hidden', borderRadius: 24,
+    shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04, shadowRadius: 22, elevation: 2,
   },
-  detailCardSurface: {
-    marginLeft: 4,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-  },
-  detailCardBody: {
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 18,
-  },
+  detailCardSurface: { marginLeft: 4, borderRadius: 20, backgroundColor: '#fff' },
+  detailCardBody: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 18 },
   detailHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', gap: 12,
   },
-  detailStatusBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  detailStatusText: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
+  detailStatusBadge: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 },
+  detailStatusText: { fontSize: 13, fontWeight: '800' },
   detailLaw: {
-    flexShrink: 1,
-    textAlign: 'right',
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#9AA3AE',
+    flexShrink: 1, textAlign: 'right',
+    fontSize: 13, fontWeight: '700', color: '#9AA3AE',
   },
   detailTitle: {
-    marginTop: 14,
-    fontSize: 17,
-    lineHeight: 24,
-    fontWeight: '800',
-    color: '#11181C',
-    letterSpacing: -0.3,
+    marginTop: 14, fontSize: 17, lineHeight: 24,
+    fontWeight: '800', color: '#11181C', letterSpacing: -0.3,
   },
   detailDescription: {
-    marginTop: 10,
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: '700',
-    color: '#98A2AE',
+    marginTop: 10, fontSize: 13, lineHeight: 20,
+    fontWeight: '500', color: '#687076',
   },
-  detailAction: {
-    alignSelf: 'flex-start',
-    marginTop: 14,
+  detailEvidence: {
+    marginTop: 8, fontSize: 12, lineHeight: 18,
+    color: '#9BA1A6', fontStyle: 'italic',
   },
-  detailActionText: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
+  detailAction: { alignSelf: 'flex-start', marginTop: 14 },
+  detailActionText: { fontSize: 15, fontWeight: '800' },
+
   chatbotCTA: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    marginTop: 4,
-    borderRadius: 22,
-    backgroundColor: '#3D7EF0',
-    paddingVertical: 18,
-    paddingHorizontal: 18,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 10, marginTop: 4, borderRadius: 22, backgroundColor: '#3D7EF0',
+    paddingVertical: 18, paddingHorizontal: 18,
   },
-  chatbotCTAText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#fff',
-  },
+  chatbotCTAText: { fontSize: 15, fontWeight: '800', color: '#fff' },
   disclaimerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 8,
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', gap: 8, marginTop: 8,
   },
-  disclaimerText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#8E97A3',
+  disclaimerText: { fontSize: 13, fontWeight: '700', color: '#8E97A3' },
+
+  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
+  emptyText: { fontSize: 16, color: '#687076', fontWeight: '600' },
+  retryBtn: {
+    backgroundColor: '#3182F6', borderRadius: 14,
+    paddingHorizontal: 24, paddingVertical: 14,
   },
-  previewActionText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1F8E39',
-  },
+  retryBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });
