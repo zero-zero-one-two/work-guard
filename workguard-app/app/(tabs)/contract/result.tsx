@@ -3,6 +3,10 @@ import { router } from 'expo-router';
 import { TabActions, useNavigation } from '@react-navigation/native';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+function goToChat(message: string) {
+  router.push({ pathname: '/chatbot/chat' as any, params: { initialMessage: message } });
+}
+
 import { ContractLayout } from '@/components/contract/contract-layout';
 import { contractStore, type AnalysisItem } from '@/store/contractStore';
 
@@ -55,7 +59,12 @@ function ResultDetailCard({ item }: { item: AnalysisItem }) {
           ) : null}
 
           {item.actionLabel ? (
-            <TouchableOpacity activeOpacity={0.8} style={styles.detailAction}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.detailAction}
+              onPress={() => goToChat(
+                `[${getStatusLabel(status)}] ${item.title}\n\n${item.description}${item.law ? '\n\n관련 법령: ' + item.law : ''}`
+              )}>
               <Text style={[styles.detailActionText, { color: palette.action }]}>
                 {item.actionLabel} →
               </Text>
@@ -157,7 +166,15 @@ export default function ContractResultScreen() {
         </View>
 
         {/* 하단 CTA */}
-        <TouchableOpacity style={styles.chatbotCTA} activeOpacity={0.88}>
+        <TouchableOpacity
+          style={styles.chatbotCTA}
+          activeOpacity={0.88}
+          onPress={() => {
+            const itemSummary = result.items
+              .map(item => `[${getStatusLabel(item.status as ResultStatus)}] ${item.title}\n${item.description}${item.law ? ` (${item.law})` : ''}`)
+              .join('\n\n');
+            goToChat(`계약서 분석 결과입니다.\n\n${itemSummary}\n\n위 내용을 바탕으로 대응 방법을 알려주세요.`);
+          }}>
           <Ionicons name="chatbubbles-outline" size={28} color="#fff" />
           <Text style={styles.chatbotCTAText}>챗봇에서 대응 방법 확인하기 →</Text>
         </TouchableOpacity>

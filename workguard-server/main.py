@@ -3,10 +3,14 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db.database import init_db
+from app.routers.chat import router as chat_router
 from app.routers.contracts import router as contracts_router
 from app.routers.work_logs import router as work_logs_router
 from app.services.retriever import ensure_collection
@@ -36,6 +40,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(chat_router)
 app.include_router(contracts_router)
 app.include_router(work_logs_router)
 

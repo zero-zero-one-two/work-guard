@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -15,31 +16,83 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Brand } from '@/constants/theme';
 
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
+
 type Message =
   | { id: string; type: 'user' | 'bot'; text: string }
   | { id: string; type: 'analysis'; text: string }
-  | { id: string; type: 'quick-reply' };
+  | { id: string; type: 'quick-reply' }
+  | { id: string; type: 'loading' };
 
-const QUICK_REPLIES = ['Show me the law', "Calculate what I'm owed", '...'];
-
-const INITIAL_MESSAGES: Message[] = [
-  { id: '1', type: 'bot', text: 'Hello! Ask me anything about working in Korea.' },
-  { id: '2', type: 'user', text: 'Can you check my contract?' },
-  { id: '3', type: 'analysis', text: 'I checked your contract. There are some issues you should be aware of regarding your working hours and overtime pay.' },
-  { id: '4', type: 'quick-reply' },
-];
+const BOT_HELLO = '안녕하세요! 한국 노동법에 관해 무엇이든 물어보세요.';
 
 export default function ChatScreen() {
-  const { category } = useLocalSearchParams<{ category?: string }>();
-  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
+  const { category, initialMessage } = useLocalSearchParams<{ category?: string; initialMessage?: string }>();
+
+  const startMessages: Message[] = initialMessage
+    ? [
+        { id: '1', type: 'bot', text: BOT_HELLO },
+        { id: '2', type: 'user', text: initialMessage },
+      ]
+    : [{ id: '1', type: 'bot', text: BOT_HELLO }];
+
+  const [messages, setMessages] = useState<Message[]>(startMessages);
   const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
+  // initialMessage가 있으면 자동으로 봇 응답 요청
+  useEffect(() => {
+    console.log('[chat] initialMessage:', initialMessage);
+    console.log('[chat] API_BASE_URL:', API_BASE_URL);
+    if (initialMessage) {
+      fetchBotReply([{ role: 'user' as const, content: initialMessage }]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function fetchBotReply(history: { role: 'user' | 'assistant'; content: string }[]) {
+    setLoading(true);
+    const loadingId = `loading-${Date.now()}`;
+    setMessages(prev => [...prev, { id: loadingId, type: 'loading' }]);
+    try {
+      const res = await fetch(`${API_BASE_URL}/chat/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: history }),
+      });
+      const data = await res.json();
+      const reply = data.reply ?? '응답을 가져오지 못했어요.';
+      setMessages(prev => [
+        ...prev.filter(m => m.id !== loadingId),
+        { id: Date.now().toString(), type: 'bot', text: reply },
+      ]);
+    } catch (err: any) {
+      console.error('[chat] fetchBotReply 오류:', err?.message, err);
+      setMessages(prev => [
+        ...prev.filter(m => m.id !== loadingId),
+        { id: Date.now().toString(), type: 'bot', text: '서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.' },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function sendMessage(text: string) {
-    if (!text.trim()) return;
-    const userMsg: Message = { id: Date.now().toString(), type: 'user', text: text.trim() };
+    if (!text.trim() || loading) return;
+    const trimmed = text.trim();
+    const userMsg: Message = { id: Date.now().toString(), type: 'user', text: trimmed };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
+
+    // 현재 대화 히스토리 구성
+    const history = [...messages, userMsg]
+      .filter((m): m is { id: string; type: 'user' | 'bot'; text: string } =>
+        m.type === 'user' || m.type === 'bot'
+      )
+      .map(m => ({ role: (m.type === 'user' ? 'user' : 'assistant') as 'user' | 'assistant', content: m.text }));
+
+    fetchBotReply(history);
   }
 
   function renderItem({ item }: { item: Message }) {
@@ -73,19 +126,18 @@ export default function ChatScreen() {
       );
     }
 
-    if (item.type === 'quick-reply') {
+    if (item.type === 'loading') {
       return (
-        <View style={styles.quickReplyRow}>
-          {QUICK_REPLIES.map(label => (
-            <TouchableOpacity
-              key={label}
-              style={styles.quickReplyBtn}
-              onPress={() => label === '...' ? router.push('/chatbot/get-help' as any) : sendMessage(label)}>
-              <Text style={styles.quickReplyText}>{label}</Text>
-            </TouchableOpacity>
-          ))}
+        <View style={styles.rowLeft}>
+          <View style={styles.bubbleBot}>
+            <ActivityIndicator size="small" color="#9BA1A6" />
+          </View>
         </View>
       );
+    }
+
+    if (item.type === 'quick-reply') {
+      return null;
     }
 
     return null;
@@ -128,7 +180,10 @@ export default function ChatScreen() {
             onSubmitEditing={() => sendMessage(input)}
             returnKeyType="send"
           />
-          <TouchableOpacity style={styles.sendButton} onPress={() => sendMessage(input)}>
+          <TouchableOpacity
+            style={[styles.sendButton, loading && { opacity: 0.5 }]}
+            onPress={() => sendMessage(input)}
+            disabled={loading}>
             <Ionicons name="arrow-up" size={18} color="#fff" />
           </TouchableOpacity>
         </View>
