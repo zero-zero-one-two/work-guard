@@ -91,7 +91,9 @@ export default function SalaryCalendarScreen() {
     if (log && log.start_time && log.end_time) {
       const [sh, sm] = log.start_time.split(':').map(Number);
       const [eh, em] = log.end_time.split(':').map(Number);
-      const hours = Math.max(0, Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 60));
+      const rawMin = Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+      const breakMin = rawMin >= 480 ? 60 : rawMin >= 240 ? 30 : 0;
+      const hours = Math.max(0, Math.round((rawMin - breakMin) / 60));
       return { day: dayName, date, hasWork: true, timeRange: `${log.start_time}-${log.end_time}`, hours };
     }
     return { day: dayName, date, hasWork: false, timeRange: '', hours: 0 };

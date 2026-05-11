@@ -234,8 +234,10 @@ export default function DayDetailScreen() {
     fetchLog();
   }, [dateStr, year, month]);
 
-  // DURATION: start/end 기반 자동 계산
-  const diffMin = Math.max(0, (endH * 60 + endMIdx * 5) - (startH * 60 + startMIdx * 5));
+  // DURATION: start/end 기반 자동 계산 (휴게시간 제외: 8h+ → 60min, 4h+ → 30min)
+  const rawMin = Math.max(0, (endH * 60 + endMIdx * 5) - (startH * 60 + startMIdx * 5));
+  const breakMin = rawMin >= 480 ? 60 : rawMin >= 240 ? 30 : 0;
+  const diffMin = Math.max(0, rawMin - breakMin);
   const durH = Math.floor(diffMin / 60);
   const durM = diffMin % 60;
   const durationLabel = `${durH}h ${String(durM).padStart(2, '0')}m`;
