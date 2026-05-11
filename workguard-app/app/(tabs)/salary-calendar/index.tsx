@@ -7,11 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '@/constants/api';
 import { Brand } from '@/constants/theme';
 
-type DayType = 'work' | 'overtime' | 'off';
+type DayType = 'work' | 'overtime';
 
-type WorkItem = { day: string; date: number; type: 'work'; timeRange: string; hours: number };
-type OffItem = { day: string; date: number; type: 'off' };
-type ScheduleItem = WorkItem | OffItem;
+type ScheduleItem = { day: string; date: number; hasWork: boolean; timeRange: string; hours: number };
 
 type WorkLog = {
   id: string;
@@ -47,7 +45,6 @@ function buildWeeks(year: number, month: number): (number | null)[][] {
 const DAY_COLORS: Record<DayType, string> = {
   work: '#FFE4E4',
   overtime: '#FEF3C7',
-  off: '#DCFCE7',
 };
 
 const MAX_HOURS = 9;
@@ -84,18 +81,20 @@ export default function SalaryCalendarScreen() {
     dayTypeMap[day] = log.overtime_hours > 0 ? 'overtime' : 'work';
   });
 
-  // API 데이터로 스케줄 생성
-  const scheduleItems: ScheduleItem[] = workLogs.map((log) => {
-    const day = parseInt(log.log_date.split('-')[2], 10);
-    const dayOfWeek = new Date(log.log_date).getDay();
+  // 이번 달 전체 날짜 기반으로 스케줄 생성
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const scheduleItems: ScheduleItem[] = Array.from({ length: daysInMonth }, (_, i) => {
+    const date = i + 1;
+    const dayOfWeek = new Date(year, month - 1, date).getDay();
     const dayName = WEEK_DAYS[dayOfWeek];
-    if (log.start_time && log.end_time) {
+    const log = workLogs.find((l) => parseInt(l.log_date.split('-')[2], 10) === date);
+    if (log && log.start_time && log.end_time) {
       const [sh, sm] = log.start_time.split(':').map(Number);
       const [eh, em] = log.end_time.split(':').map(Number);
       const hours = Math.max(0, Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 60));
-      return { day: dayName, date: day, type: 'work', timeRange: `${log.start_time}-${log.end_time}`, hours };
+      return { day: dayName, date, hasWork: true, timeRange: `${log.start_time}-${log.end_time}`, hours };
     }
-    return { day: dayName, date: day, type: 'off' };
+    return { day: dayName, date, hasWork: false, timeRange: '', hours: 0 };
   });
 
   const handleDayPress = (day: number) => {
@@ -156,7 +155,6 @@ export default function SalaryCalendarScreen() {
             {[
               { label: 'Work', color: DAY_COLORS.work },
               { label: 'Over time', color: DAY_COLORS.overtime },
-              { label: 'Off', color: DAY_COLORS.off },
             ].map(({ label, color }) => (
               <View key={label} style={styles.legendItem}>
                 <View style={[styles.legendBox, { backgroundColor: color }]} />
@@ -173,49 +171,35 @@ export default function SalaryCalendarScreen() {
         contentContainerStyle={styles.scheduleContent}
         showsVerticalScrollIndicator={false}
       >
-        {scheduleItems.map((item) =>
-          item.type === 'work' ? (
-            <TouchableOpacity
-              key={item.date}
-              style={styles.scheduleCard}
-              onPress={() => handleDayPress(item.date)}
-              activeOpacity={0.75}
-            >
-              <View style={styles.scheduleRow}>
-                <Text style={styles.scheduleDay}>{item.day}</Text>
-                <Text style={styles.scheduleDate}>{item.date}</Text>
-                <Text style={styles.scheduleTime}>{item.timeRange}</Text>
+        {scheduleItems.map((item) => (
+          <TouchableOpacity
+            key={item.date}
+            style={styles.scheduleCard}
+            onPress={() => handleDayPress(item.date)}
+            activeOpacity={0.75}
+          >
+            <View style={styles.scheduleRow}>
+              <Text style={[styles.scheduleDay, !item.hasWork && { color: '#9BA1A6' }]}>{item.day}</Text>
+              <Text style={[styles.scheduleDate, !item.hasWork && { color: '#C4C9CF' }]}>{item.date}</Text>
+              {item.hasWork && <Text style={styles.scheduleTime}>{item.timeRange}</Text>}
+              {item.hasWork && (
                 <View style={styles.hoursBadge}>
                   <Text style={styles.hoursText}>{item.hours}h</Text>
                 </View>
-              </View>
-              <View style={styles.progressTrack}>
+              )}
+            </View>
+            <View style={styles.progressTrack}>
+              {item.hasWork && (
                 <View
                   style={[
                     styles.progressFill,
                     { width: `${Math.round((item.hours / MAX_HOURS) * 100)}%` },
                   ]}
                 />
-              </View>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              key={item.date}
-              style={[styles.scheduleCard, styles.offCard]}
-              onPress={() => handleDayPress(item.date)}
-              activeOpacity={0.75}
-            >
-              <View style={[styles.scheduleRow, { marginBottom: 0 }]}>
-                <Text style={[styles.scheduleDay, styles.offDayText]}>{item.day}</Text>
-                <Text style={[styles.scheduleDate, styles.offDateText]}>{item.date}</Text>
-                <View style={{ flex: 1 }} />
-                <View style={styles.offBadge}>
-                  <Text style={styles.offBadgeText}>Off</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          )
-        )}
+              )}
+            </View>
+          </TouchableOpacity>
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
@@ -413,27 +397,4 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
 
-  // Off day card
-  offCard: {
-    paddingBottom: 16,
-  },
-  offDayText: {
-    color: '#9BA1A6',
-  },
-  offDateText: {
-    color: '#C4C9CF',
-  },
-  offBadge: {
-    backgroundColor: '#DCFCE7',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    minWidth: 42,
-    alignItems: 'center',
-  },
-  offBadgeText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#16A34A',
-  },
 });
