@@ -21,6 +21,9 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:e4b")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_OPTIONS = {"temperature": 0, "top_p": 0.8, "num_predict": 4096}
 
+VLLM_MODEL = os.getenv("VLLM_MODEL", "google/gemma-4-e4b-it")
+VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://localhost:8001")
+
 _mlx_cache: dict[str, tuple] = {}
 _gguf_cache: dict[str, Any] = {}
 
@@ -313,6 +316,49 @@ JSON 외 텍스트, 마크다운, 코드블록을 출력하지 마세요."""
     return raw, f"{OLLAMA_MODEL}:retry"
 
 
+# ── vLLM 백엔드 ──────────────────────────────────────────────────────
+
+def _vllm_chat(messages: list[dict], use_json_format: bool = True) -> str:
+    import requests
+    payload: dict = {
+        "model": VLLM_MODEL,
+        "messages": messages,
+        "temperature": 0.1,
+        "max_tokens": 4096,
+        "top_p": 0.8,
+    }
+    if use_json_format:
+        payload["response_format"] = {"type": "json_object"}
+    logger.info(f"vLLM 호출 | model={VLLM_MODEL} | json_format={use_json_format}")
+    response = requests.post(f"{VLLM_BASE_URL}/v1/chat/completions", json=payload, timeout=300)
+    response.raise_for_status()
+    return response.json()["choices"][0]["message"]["content"]
+
+def _vllm_analyze(contract_text: str, law_context: str) -> tuple[str, str]:
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": build_user_prompt(contract_text, law_context)},
+    ]
+    raw = _vllm_chat(messages)
+    logger.info(f"vLLM 응답:\n{raw}")
+    return raw, VLLM_MODEL
+
+def _vllm_retry_analyze(contract_text: str, law_context: str, error: str) -> tuple[str, str]:
+    logger.warning(f"vLLM 응답 형식 오류로 재시도: {error}")
+    system = SYSTEM_PROMPT + """
+
+중요: 최상위 키는 is_clean, summary, items 입니다.
+items 내부 키는 id, status, law, title, evidence, description, actionLabel 입니다.
+JSON 외 텍스트, 마크다운, 코드블록을 출력하지 마세요."""
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": build_user_prompt(contract_text, law_context)},
+    ]
+    raw = _vllm_chat(messages)
+    logger.info(f"vLLM 재시도 응답:\n{raw}")
+    return raw, f"{VLLM_MODEL}:retry"
+
+
 # ── 공통 진입점 ───────────────────────────────────────────────────────
 
 def analyze_contract(contract_text: str, law_context: str = "") -> dict[str, Any]:
@@ -325,6 +371,8 @@ def analyze_contract(contract_text: str, law_context: str = "") -> dict[str, Any
         raw, model_id = _gguf_analyze(truncated, law_context)
     elif MODEL_BACKEND == "ollama":
         raw, model_id = _ollama_analyze(truncated, law_context)
+    elif MODEL_BACKEND == "vllm":
+        raw, model_id = _vllm_analyze(truncated, law_context)
     else:
         raw, model_id = _mlx_analyze(truncated, law_context)
 
@@ -339,6 +387,13 @@ def analyze_contract(contract_text: str, law_context: str = "") -> dict[str, Any
     except ValueError as exc:
         if MODEL_BACKEND == "ollama":
             raw, model_id = _ollama_retry_analyze(truncated, law_context, str(exc))
+            try:
+                result = _normalize_analysis(_parse_json(raw))
+            except ValueError as retry_exc:
+                model_id = f"{model_id}:fallback"
+                result = _fallback_analysis(truncated, str(retry_exc))
+        elif MODEL_BACKEND == "vllm":
+            raw, model_id = _vllm_retry_analyze(truncated, law_context, str(exc))
             try:
                 result = _normalize_analysis(_parse_json(raw))
             except ValueError as retry_exc:
