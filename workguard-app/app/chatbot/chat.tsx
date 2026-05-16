@@ -15,8 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Brand } from '@/constants/theme';
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
+import { API_BASE_URL } from '@/constants/api';
 
 type Message =
   | { id: string; type: 'user' | 'bot'; text: string }

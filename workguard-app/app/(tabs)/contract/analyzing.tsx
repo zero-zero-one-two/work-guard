@@ -4,8 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { contractStore } from '@/store/contractStore';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
-
+import { API_BASE_URL } from '@/constants/api';
 import { ContractLayout } from '@/components/contract/contract-layout';
 
 type StepStatus = 'completed' | 'active' | 'pending';
