@@ -10,15 +10,19 @@ QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "workguard_docs")
 DOCUMENTS_DIR = os.getenv("DOCUMENTS_DIR", "./documents")
+UPSTAGE_API_KEY = os.getenv("UPSTAGE_API_KEY", "")
 
-DENSE_MODEL = os.getenv("DENSE_MODEL", "BAAI/bge-base-en-v1.5")
-SPARSE_MODEL = os.getenv("SPARSE_MODEL", "Qdrant/bm25")
-DENSE_DIM = int(os.getenv("DENSE_DIM", "768"))
+# rag-pipeline과 동일: passage=4096d, query=4096d (same dim, different model)
+_DENSE_PASSAGE = "solar-embedding-1-large-passage"
+_DENSE_QUERY = "solar-embedding-1-large-query"
+_DENSE_DIM = 4096
+_SPARSE_MODEL = "Qdrant/bm25"
+
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1200"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "320"))
 
-_embedder = None
 _client = None
+_sparse_model = None
 
 
 def _get_client():
@@ -29,36 +33,77 @@ def _get_client():
     return _client
 
 
-def _get_embedder():
-    global _embedder
-    if _embedder is None:
-        from fastembed import SparseTextEmbedding, TextEmbedding
-        _embedder = (
-            TextEmbedding(model_name=DENSE_MODEL),
-            SparseTextEmbedding(model_name=SPARSE_MODEL),
+def _get_sparse_model():
+    global _sparse_model
+    if _sparse_model is None:
+        from fastembed import SparseTextEmbedding
+        _sparse_model = SparseTextEmbedding(model_name=_SPARSE_MODEL)
+    return _sparse_model
+
+
+def _embed_dense(texts: list[str], model: str) -> list[list[float]]:
+    """Upstage Solar Embedding API 호출 (rag-pipeline과 동일 모델)."""
+    import requests as req_lib
+    if not UPSTAGE_API_KEY:
+        raise RuntimeError("UPSTAGE_API_KEY 환경변수가 설정되지 않았습니다.")
+    result: list[list[float]] = []
+    batch_size = 32
+    for start in range(0, len(texts), batch_size):
+        batch = texts[start : start + batch_size]
+        resp = req_lib.post(
+            "https://api.upstage.ai/v1/embeddings",
+            headers={"Authorization": f"Bearer {UPSTAGE_API_KEY}"},
+            json={"model": model, "input": batch},
+            timeout=30,
         )
-    return _embedder
+        resp.raise_for_status()
+        sorted_data = sorted(resp.json()["data"], key=lambda d: d["index"])
+        result.extend(d["embedding"] for d in sorted_data)
+    return result
+
+
+def _qdrant_search(query: str, top_k: int = 5) -> list[str]:
+    """Hybrid RRF search (dense + BM25 sparse) on Qdrant."""
+    from qdrant_client.models import Fusion, FusionQuery, Prefetch, SparseVector
+
+    client = _get_client()
+    sparse_model = _get_sparse_model()
+
+    dense_vec = _embed_dense([query], _DENSE_QUERY)[0]
+    sparse_vec = next(iter(sparse_model.embed([query])))
+
+    results = client.query_points(
+        collection_name=COLLECTION_NAME,
+        prefetch=[
+            Prefetch(query=dense_vec, using="dense", limit=top_k * 4),
+            Prefetch(
+                query=SparseVector(
+                    indices=sparse_vec.indices.tolist(),
+                    values=sparse_vec.values.tolist(),
+                ),
+                using="sparse",
+                limit=top_k * 4,
+            ),
+        ],
+        query=FusionQuery(fusion=Fusion.RRF),
+        limit=top_k,
+    )
+    return [p.payload["text"] for p in results.points if p.payload]
 
 
 def ensure_collection() -> None:
-    """
-    컬렉션이 없거나 비어 있으면 documents/ 의 MD 파일을 인덱싱한다.
-    서버 시작 시 한 번만 호출된다.
-    """
+    """컬렉션이 없거나 비어 있으면 documents/ 의 MD 파일을 인덱싱한다."""
     try:
         client = _get_client()
         existing = {c.name for c in client.get_collections().collections}
-
         if COLLECTION_NAME in existing:
             info = client.get_collection(COLLECTION_NAME)
             if (info.points_count or 0) > 0:
                 logger.info(f"Qdrant 컬렉션 '{COLLECTION_NAME}' 이미 존재 ({info.points_count}개 포인트)")
                 return
-
         logger.info(f"Qdrant 컬렉션 '{COLLECTION_NAME}' 인덱싱 시작...")
         _index_documents(client)
         logger.info("인덱싱 완료")
-
     except Exception as exc:
         logger.warning(f"Qdrant 초기화 실패 (RAG 없이 동작): {exc}")
 
@@ -78,7 +123,6 @@ def _index_documents(client) -> None:
     if not md_files:
         raise FileNotFoundError(f"{docs_dir}에 .md 파일이 없습니다.")
 
-    # 청킹
     encoder = tiktoken.get_encoding("cl100k_base")
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
@@ -92,16 +136,15 @@ def _index_documents(client) -> None:
         all_chunks.extend(splitter.split_documents(docs))
 
     texts = [c.page_content for c in all_chunks]
-    dense_model, sparse_model = _get_embedder()
-    dense_vecs = list(dense_model.embed(texts))
+    sparse_model = _get_sparse_model()
+    dense_vecs = _embed_dense(texts, _DENSE_PASSAGE)
     sparse_vecs = list(sparse_model.embed(texts))
 
-    # 컬렉션 생성 (없으면)
     existing = {c.name for c in client.get_collections().collections}
     if COLLECTION_NAME not in existing:
         client.create_collection(
             collection_name=COLLECTION_NAME,
-            vectors_config={"dense": VectorParams(size=DENSE_DIM, distance=Distance.COSINE)},
+            vectors_config={"dense": VectorParams(size=_DENSE_DIM, distance=Distance.COSINE)},
             sparse_vectors_config={"sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False))},
         )
 
@@ -109,7 +152,7 @@ def _index_documents(client) -> None:
         PointStruct(
             id=str(uuid.uuid4()),
             vector={
-                "dense": d.tolist(),
+                "dense": d,
                 "sparse": SparseVector(indices=s.indices.tolist(), values=s.values.tolist()),
             },
             payload={"text": chunk.page_content, "source": chunk.metadata.get("source", "")},
@@ -119,44 +162,28 @@ def _index_documents(client) -> None:
 
     batch_size = 32
     for i in range(0, len(points), batch_size):
-        client.upsert(collection_name=COLLECTION_NAME, points=points[i:i + batch_size])
+        client.upsert(collection_name=COLLECTION_NAME, points=points[i : i + batch_size])
 
     logger.info(f"{len(points)}개 청크 저장 완료")
 
 
 def retrieve_law_context(contract_text: str, top_k: int = 5) -> str:
-    """계약서 텍스트로 관련 법령 청크를 검색한다. 실패 시 빈 문자열 반환."""
+    """계약서 분석용: 관련 법령 청크 검색. 실패 시 빈 문자열."""
     try:
-        from qdrant_client.models import Fusion, FusionQuery, Prefetch, SparseVector
-
-        client = _get_client()
-        dense_model, sparse_model = _get_embedder()
-
-        query = contract_text[:2000]
-        dense_vec = next(iter(dense_model.embed([query]))).tolist()
-        sparse_vec = next(iter(sparse_model.embed([query])))
-
-        results = client.query_points(
-            collection_name=COLLECTION_NAME,
-            prefetch=[
-                Prefetch(query=dense_vec, using="dense", limit=top_k * 4),
-                Prefetch(
-                    query=SparseVector(
-                        indices=sparse_vec.indices.tolist(),
-                        values=sparse_vec.values.tolist(),
-                    ),
-                    using="sparse",
-                    limit=top_k * 4,
-                ),
-            ],
-            query=FusionQuery(fusion=Fusion.RRF),
-            limit=top_k,
-        )
-
-        chunks = [p.payload["text"] for p in results.points if p.payload]
-        logger.info(f"RAG: {len(chunks)}개 법령 청크 검색")
+        chunks = _qdrant_search(contract_text[:2000], top_k=top_k)
+        logger.info(f"RAG (계약서): {len(chunks)}개 법령 청크 검색")
         return "\n\n---\n\n".join(chunks)
+    except Exception as exc:
+        logger.warning(f"RAG 검색 실패 (스킵): {exc}")
+        return ""
 
+
+def retrieve_chat_context(query: str, top_k: int = 5) -> str:
+    """채팅용: 사용자 질문으로 관련 법령 청크 검색. 실패 시 빈 문자열."""
+    try:
+        chunks = _qdrant_search(query[:500], top_k=top_k)
+        logger.info(f"RAG (채팅): {len(chunks)}개 법령 청크 검색")
+        return "\n\n---\n\n".join(chunks)
     except Exception as exc:
         logger.warning(f"RAG 검색 실패 (스킵): {exc}")
         return ""

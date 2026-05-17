@@ -12,14 +12,18 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Brand } from '@/constants/theme';
 import { API_BASE_URL } from '@/constants/api';
 
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
+
 type Message =
   | { id: string; type: 'user' | 'bot'; text: string }
   | { id: string; type: 'analysis'; text: string }
+  | { id: string; type: 'consultation' }
   | { id: string; type: 'quick-reply' }
   | { id: string; type: 'loading' };
 
@@ -40,10 +44,7 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
-  // initialMessage가 있으면 자동으로 봇 응답 요청
   useEffect(() => {
-    console.log('[chat] initialMessage:', initialMessage);
-    console.log('[chat] API_BASE_URL:', API_BASE_URL);
     if (initialMessage) {
       fetchBotReply([{ role: 'user' as const, content: initialMessage }]);
     }
@@ -58,14 +59,23 @@ export default function ChatScreen() {
       const res = await fetch(`${API_BASE_URL}/chat/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({ messages: history, category: category ?? null }),
       });
       const data = await res.json();
-      const reply = data.reply ?? '응답을 가져오지 못했어요.';
-      setMessages(prev => [
-        ...prev.filter(m => m.id !== loadingId),
-        { id: Date.now().toString(), type: 'bot', text: reply },
-      ]);
+      const reply: string = data.reply ?? '응답을 가져오지 못했어요.';
+      const responseType: string = data.type ?? 'chat';
+
+      setMessages(prev => {
+        const filtered = prev.filter(m => m.id !== loadingId);
+        const newMsgs: Message[] = [
+          { id: Date.now().toString(), type: 'bot', text: reply },
+        ];
+        // 상담 기관 연결 의도면 카드 추가
+        if (responseType === 'consultation') {
+          newMsgs.push({ id: `${Date.now()}-card`, type: 'consultation' });
+        }
+        return [...filtered, ...newMsgs];
+      });
     } catch (err: any) {
       console.error('[chat] fetchBotReply 오류:', err?.message, err);
       setMessages(prev => [
@@ -84,7 +94,6 @@ export default function ChatScreen() {
     setMessages(prev => [...prev, userMsg]);
     setInput('');
 
-    // 현재 대화 히스토리 구성
     const history = [...messages, userMsg]
       .filter((m): m is { id: string; type: 'user' | 'bot'; text: string } =>
         m.type === 'user' || m.type === 'bot'
@@ -109,7 +118,29 @@ export default function ChatScreen() {
       return (
         <View style={styles.rowLeft}>
           <View style={styles.bubbleBot}>
-            <Text style={styles.bubbleBotText}>{item.text}</Text>
+            <Markdown style={markdownStyles}>{item.text}</Markdown>
+          </View>
+        </View>
+      );
+    }
+
+    if (item.type === 'consultation') {
+      return (
+        <View style={styles.rowLeft}>
+          <View style={styles.consultationCard}>
+            <View style={styles.consultationIconRow}>
+              <Ionicons name="location" size={16} color={Brand.primary} />
+              <Text style={styles.consultationTitle}>가까운 상담 센터 찾기</Text>
+            </View>
+            <Text style={styles.consultationDesc}>
+              GPS 위치를 기반으로 가장 가까운 다국어 노동 상담 기관을 연결해 드립니다.
+            </Text>
+            <TouchableOpacity
+              style={styles.consultationButton}
+              onPress={() => router.push('/chatbot/get-help')}>
+              <Ionicons name="map-outline" size={14} color="#fff" />
+              <Text style={styles.consultationButtonText}>상담 센터 보기</Text>
+            </TouchableOpacity>
           </View>
         </View>
       );
@@ -193,10 +224,7 @@ export default function ChatScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  container: {
-    flex: 1,
-    backgroundColor: Brand.background,
-  },
+  container: { flex: 1, backgroundColor: Brand.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -207,27 +235,11 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E5E7EB',
     backgroundColor: '#fff',
   },
-  backButton: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#11181C',
-  },
-  messageList: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 12,
-  },
-  rowRight: {
-    alignItems: 'flex-end',
-  },
-  rowLeft: {
-    alignItems: 'flex-start',
-  },
+  backButton: { width: 36, height: 36, justifyContent: 'center' },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#11181C' },
+  messageList: { paddingHorizontal: 16, paddingVertical: 16, gap: 12 },
+  rowRight: { alignItems: 'flex-end' },
+  rowLeft: { alignItems: 'flex-start' },
   bubbleUser: {
     backgroundColor: Brand.primary,
     borderRadius: 18,
@@ -236,11 +248,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     maxWidth: '75%',
   },
-  bubbleUserText: {
-    color: '#fff',
-    fontSize: 14,
-    lineHeight: 20,
-  },
+  bubbleUserText: { color: '#fff', fontSize: 14, lineHeight: 20 },
   bubbleBot: {
     backgroundColor: '#fff',
     borderRadius: 18,
@@ -254,10 +262,46 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
   },
-  bubbleBotText: {
-    color: '#11181C',
+  bubbleBotText: { color: '#11181C', fontSize: 14, lineHeight: 20 }, // unused (Markdown replaces Text)
+  consultationCard: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: Brand.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    maxWidth: '85%',
+    gap: 8,
+  },
+  consultationIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  consultationTitle: {
     fontSize: 14,
-    lineHeight: 20,
+    fontWeight: '700',
+    color: Brand.primary,
+  },
+  consultationDesc: {
+    fontSize: 13,
+    color: '#374151',
+    lineHeight: 19,
+  },
+  consultationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Brand.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    marginTop: 2,
+  },
+  consultationButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
   },
   analysisCard: {
     backgroundColor: '#FEF3C7',
@@ -266,29 +310,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     maxWidth: '85%',
   },
-  analysisText: {
-    color: '#92400E',
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  quickReplyRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    alignItems: 'flex-start',
-  },
-  quickReplyBtn: {
-    borderWidth: 1,
-    borderColor: Brand.primary,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  quickReplyText: {
-    fontSize: 13,
-    color: Brand.primary,
-    fontWeight: '500',
-  },
+  analysisText: { color: '#92400E', fontSize: 13, lineHeight: 19 },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -317,3 +339,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+
+const markdownStyles = {
+  body: { color: '#11181C', fontSize: 14, lineHeight: 20 },
+  heading1: { fontSize: 16, fontWeight: '700' as const, marginVertical: 6, color: '#11181C' },
+  heading2: { fontSize: 15, fontWeight: '700' as const, marginVertical: 5, color: '#11181C' },
+  heading3: { fontSize: 14, fontWeight: '700' as const, marginVertical: 4, color: '#11181C' },
+  strong: { fontWeight: '700' as const },
+  paragraph: { marginVertical: 2 },
+  bullet_list: { marginVertical: 2 },
+  ordered_list: { marginVertical: 2 },
+  list_item: { marginVertical: 1 },
+  blockquote: {
+    backgroundColor: '#F3F4F6',
+    borderLeftWidth: 3,
+    borderLeftColor: Brand.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginVertical: 4,
+  },
+  hr: { borderColor: '#E5E7EB', marginVertical: 8 },
+  code_inline: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    fontSize: 12,
+    fontFamily: 'monospace',
+  },
+};

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Brand } from '@/constants/theme';
@@ -49,20 +49,6 @@ export default function ChatbotScreen() {
           ))}
         </View>
       </ScrollView>
-
-      {/* Bottom Input */}
-      <View style={styles.inputBar}>
-        <TextInput
-          style={styles.input}
-          placeholder="Type your question."
-          placeholderTextColor="#9BA1A6"
-        />
-        <TouchableOpacity
-          style={styles.sendButton}
-          onPress={() => router.push('/chatbot/chat' as any)}>
-          <Ionicons name="arrow-up" size={18} color="#fff" />
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -143,32 +129,5 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#11181C',
     textAlign: 'center',
-  },
-  inputBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    backgroundColor: '#fff',
-    gap: 10,
-  },
-  input: {
-    flex: 1,
-    height: 44,
-    backgroundColor: Brand.background,
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    fontSize: 14,
-    color: '#11181C',
-  },
-  sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Brand.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
