@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   Modal,
   NativeScrollEvent,
@@ -16,6 +16,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Brand } from '@/constants/theme';
+import { API_BASE_URL } from '@/constants/api';
+
 
 // ── Overtime slider constants ──────────────────────────────────────
 const MAX_OT = 8;
@@ -42,15 +44,6 @@ const DAY_NAMES: Record<string, string> = {
   '24': 'Sunday', '25': 'Monday', '26': 'Tuesday', '27': 'Wednesday',
   '28': 'Thursday', '29': 'Friday', '30': 'Saturday',
 };
-
-const WORK_DATA: Record<string, { start: string; end: string; fee: string }> = {
-  '21': { start: '09:00', end: '18:00', fee: '₩135,000' },
-  '22': { start: '09:00', end: '18:00', fee: '₩135,000' },
-  '23': { start: '09:00', end: '14:00', fee: '₩75,000' },
-  '24': { start: '09:00', end: '18:00', fee: '₩135,000' },
-};
-
-const DEFAULT_WORK = { start: '09:00', end: '18:00', fee: '₩135,000' };
 
 // ── Helpers ─────────────────────────────────────────────────────────
 function parseTime(timeStr: string) {
@@ -184,17 +177,17 @@ export default function DayDetailScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
   const router = useRouter();
 
-  const dateStr = Array.isArray(date) ? date[0] : (date ?? '24');
-  const work = WORK_DATA[dateStr] ?? DEFAULT_WORK;
+  const dateStr = Array.isArray(date) ? date[0] : (date ?? '1');
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
   const dayName = DAY_NAMES[dateStr] ?? 'Thursday';
 
   // 시간 상태
-  const initStart = parseTime(work.start);
-  const initEnd = parseTime(work.end);
-  const [startH, setStartH] = useState(initStart.h);
-  const [startMIdx, setStartMIdx] = useState(initStart.mIdx);
-  const [endH, setEndH] = useState(initEnd.h);
-  const [endMIdx, setEndMIdx] = useState(initEnd.mIdx);
+  const [startH, setStartH] = useState(9);
+  const [startMIdx, setStartMIdx] = useState(0);
+  const [endH, setEndH] = useState(18);
+  const [endMIdx, setEndMIdx] = useState(0);
 
   // 피커 상태
   const [pickerKey, setPickerKey] = useState(0);
@@ -208,12 +201,43 @@ export default function DayDetailScreen() {
   const minWheelRef = useRef<WheelRef>(null);
 
   // 기타 상태
-  const [overtime, setOvertime] = useState(2.5);
+  const [overtime, setOvertime] = useState(0);
   const [nightShift, setNightShift] = useState(false);
-  const [holidayWork, setHolidayWork] = useState(true);
+  const [holidayWork, setHolidayWork] = useState(false);
+  const [logId, setLogId] = useState<string | null>(null);
+  const [fee, setFee] = useState<number | null>(null);
 
-  // DURATION: start/end 기반 자동 계산
-  const diffMin = Math.max(0, (endH * 60 + endMIdx * 5) - (startH * 60 + startMIdx * 5));
+  useEffect(() => {
+    const fetchLog = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/work-logs/${year}/${month}/${dateStr}`);
+        if (res.ok) {
+          const data = await res.json();
+          setLogId(data.id);
+          if (data.start_time) {
+            const s = parseTime(data.start_time);
+            setStartH(s.h);
+            setStartMIdx(s.mIdx);
+          }
+          if (data.end_time) {
+            const e = parseTime(data.end_time);
+            setEndH(e.h);
+            setEndMIdx(e.mIdx);
+          }
+          setOvertime(data.overtime_hours);
+          setNightShift(data.is_night_shift);
+          setHolidayWork(data.is_holiday_work);
+          setFee(data.fee);
+        }
+      } catch (e) {}
+    };
+    fetchLog();
+  }, [dateStr, year, month]);
+
+  // DURATION: start/end 기반 자동 계산 (휴게시간 제외: 8h+ → 60min, 4h+ → 30min)
+  const rawMin = Math.max(0, (endH * 60 + endMIdx * 5) - (startH * 60 + startMIdx * 5));
+  const breakMin = rawMin >= 480 ? 60 : rawMin >= 240 ? 30 : 0;
+  const diffMin = Math.max(0, rawMin - breakMin);
   const durH = Math.floor(diffMin / 60);
   const durM = diffMin % 60;
   const durationLabel = `${durH}h ${String(durM).padStart(2, '0')}m`;
@@ -240,6 +264,35 @@ export default function DayDetailScreen() {
     setPickerVisible(false);
   };
 
+  const handleSave = async () => {
+    const logDate = `${year}-${String(month).padStart(2, '0')}-${dateStr.padStart(2, '0')}`;
+    const body = JSON.stringify({
+      log_date: logDate,
+      start_time: formatTime(startH, startMIdx),
+      end_time: formatTime(endH, endMIdx),
+      fee,
+      overtime_hours: overtime,
+      is_night_shift: nightShift,
+      is_holiday_work: holidayWork,
+    });
+
+    if (logId) {
+      await fetch(`${API_BASE_URL}/work-logs/${logId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+    } else {
+      await fetch(`${API_BASE_URL}/work-logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+    }
+
+    router.back();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
@@ -248,7 +301,7 @@ export default function DayDetailScreen() {
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={22} color="#11181C" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>4/{dateStr}</Text>
+          <Text style={styles.headerTitle}>{month}/{dateStr}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -286,7 +339,7 @@ export default function DayDetailScreen() {
               <Ionicons name="receipt-outline" size={17} color={Brand.primary} />
             </View>
             <Text style={styles.infoLabel}>FEE</Text>
-            <Text style={styles.infoValue}>{work.fee}</Text>
+            <Text style={styles.infoValue}>{fee ? `₩${fee.toLocaleString()}` : '-'}</Text>
             <Ionicons name="chevron-forward" size={16} color="#C4C9CF" />
           </TouchableOpacity>
 
@@ -362,7 +415,7 @@ export default function DayDetailScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.saveBtn} onPress={() => router.back()} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.85}>
           <Text style={styles.saveBtnText}>Save to Calendar</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -425,8 +478,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, marginTop: 20, marginBottom: 10,
   },
-  sectionTitleBlue: { fontSize: 14, fontWeight: '700', fontStyle: 'italic', color: Brand.primary, letterSpacing: 0.5 },
-  sectionTitleDark: { fontSize: 14, fontWeight: '700', color: '#11181C', letterSpacing: 0.5 },
+  sectionTitleBlue: { fontSize: 16, fontWeight: '700', color: Brand.primary, letterSpacing: 0.5 },
+  sectionTitleDark: { fontSize: 16, fontWeight: '700', color: Brand.primary, letterSpacing: 0.5 },
   sectionSubtitle: { fontSize: 13, color: '#9BA1A6' },
 
   card: {

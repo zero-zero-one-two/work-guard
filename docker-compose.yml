@@ -64,5 +64,31 @@ services:
       - ./workguard-server/data:/app/data
       - ./rag-pipeline/documents:/app/documents:ro
 
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: workguard_vllm
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+    command: >
+      --model ${VLLM_MODEL:-google/gemma-4-e4b-it}
+      --host 0.0.0.0
+      --port 8001
+      --max-model-len 4096
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
 volumes:
   qdrant_data:
+  huggingface_cache:

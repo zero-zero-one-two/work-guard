@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { contractStore } from '@/store/contractStore';
 
+import { API_BASE_URL } from '@/constants/api';
 import { ContractLayout } from '@/components/contract/contract-layout';
 
 type StepStatus = 'completed' | 'active' | 'pending';
@@ -255,32 +257,71 @@ function StepRow({ step, index }: { step: { label: string; sub: string; status: 
   );
 }
 
+async function analyzeImages(images: string[]): Promise<void> {
+  for (const uri of images) {
+    const formData = new FormData();
+    const filename = uri.split('/').pop() ?? 'contract.jpg';
+    formData.append('file', { uri, name: filename, type: 'image/jpeg' } as any);
+
+    const response = await fetch(`${API_BASE_URL}/contracts/analyze`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`서버 오류 (${response.status}): ${err}`);
+    }
+
+    const result = await response.json();
+    console.log('[analyzing] API 응답 수신, is_clean:', result?.is_clean, '| items:', result?.items?.length);
+    contractStore.setResult(result);
+    console.log('[analyzing] contractStore.setResult 완료, getResult():', contractStore.getResult()?.is_clean);
+    return; // 첫 번째 이미지 결과만 사용 (추후 다중 페이지 지원 확장)
+  }
+}
+
 export default function ContractAnalyzingScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [apiDone, setApiDone] = useState(false);
+  const pageCount = contractStore.getImages().length;
 
+  // API 호출 - 완료되면 apiDone=true, 절대 타이머로 네비게이션 안 함
   useEffect(() => {
-    if (activeIndex >= BASE_STEPS.length) {
-      return;
+    const images = contractStore.getImages();
+    console.log('[analyzing] 이미지 개수:', images.length, '| API_URL:', API_BASE_URL);
+
+    if (images.length === 0) {
+      console.warn('[analyzing] 이미지가 없어요! contractStore.getImages() = []');
     }
 
-    const progressTimer = setTimeout(() => {
-      setActiveIndex((prev) => prev + 1);
-    }, 700);
+    analyzeImages(images)
+      .then(() => {
+        console.log('[analyzing] analyzeImages 완료 → setApiDone(true)');
+        setApiDone(true);
+      })
+      .catch((err) => {
+        console.error('[analyzing] 오류:', err.message);
+        Alert.alert('분석 실패', err.message ?? '서버에 연결할 수 없어요.', [
+          { text: '돌아가기', onPress: () => router.back() },
+        ]);
+      });
+  }, []);
 
-    return () => clearTimeout(progressTimer);
-  }, [activeIndex]);
-
+  // 애니메이션: 3번째 스텝까지만 자동 진행 (마지막은 API 완료 시)
   useEffect(() => {
-    if (activeIndex < BASE_STEPS.length) {
-      return;
-    }
-
-    const navigateTimer = setTimeout(() => {
-      router.replace('/contract/result');
-    }, 700);
-
-    return () => clearTimeout(navigateTimer);
+    if (activeIndex >= BASE_STEPS.length - 1) return;
+    const t = setTimeout(() => setActiveIndex((p) => p + 1), 2000);
+    return () => clearTimeout(t);
   }, [activeIndex]);
+
+  // API 완료되면 마지막 스텝 표시 후 result로 이동
+  useEffect(() => {
+    if (!apiDone) return;
+    setActiveIndex(BASE_STEPS.length);
+    const t = setTimeout(() => router.replace('/contract/result'), 800);
+    return () => clearTimeout(t);
+  }, [apiDone]);
 
   const steps = useMemo(
     () =>
@@ -327,7 +368,7 @@ export default function ContractAnalyzingScreen() {
               근로계약서.jpg
             </Text>
             <View style={styles.fileMetaRow}>
-              <Text style={styles.fileMeta}>7페이지</Text>
+              <Text style={styles.fileMeta}>{pageCount}페이지</Text>
             </View>
           </View>
           <View style={styles.fileUploadBadge}>

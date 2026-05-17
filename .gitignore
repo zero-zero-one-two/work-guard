@@ -9,3 +9,6 @@ ocr_results/
 dev/
 .venv
 *.md
+*.db
+data/
+workguard-server/data/

@@ -16,6 +16,7 @@ import Markdown from 'react-native-markdown-display';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Brand } from '@/constants/theme';
+import { API_BASE_URL } from '@/constants/api';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -163,6 +164,10 @@ export default function ChatScreen() {
           </View>
         </View>
       );
+    }
+
+    if (item.type === 'quick-reply') {
+      return null;
     }
 
     return null;

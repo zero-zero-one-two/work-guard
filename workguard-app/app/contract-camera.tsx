@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
+import { contractStore } from '@/store/contractStore';
 import {
   Alert,
   Image,
@@ -22,7 +23,6 @@ export default function ContractCameraScreen() {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [images, setImages] = useState<string[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const cameraRef = useRef<CameraView>(null);
 
   async function takePicture() {
@@ -31,7 +31,6 @@ export default function ContractCameraScreen() {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
       if (photo?.uri) {
         setImages(prev => [...prev, photo.uri]);
-        setSelectedIndex(null);
       }
     } catch {
       Alert.alert('오류', '사진 촬영에 실패했어요. 다시 시도해 주세요.');
@@ -47,7 +46,6 @@ export default function ContractCameraScreen() {
     });
     if (!result.canceled && result.assets.length > 0) {
       setImages(prev => [...prev, ...result.assets.map(a => a.uri)]);
-      setSelectedIndex(null);
     }
   }
 
@@ -59,7 +57,6 @@ export default function ContractCameraScreen() {
         style: 'destructive',
         onPress: () => {
           setImages(prev => prev.filter((_, i) => i !== index));
-          setSelectedIndex(null);
         },
       },
     ]);
@@ -85,8 +82,6 @@ export default function ContractCameraScreen() {
     );
   }
 
-  const previewUri = selectedIndex !== null ? images[selectedIndex] : null;
-
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }]}>
 
@@ -99,25 +94,12 @@ export default function ContractCameraScreen() {
       <View style={styles.viewfinder}>
         <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
 
-        {/* 촬영 이미지 미리보기 오버레이 */}
-        {previewUri && (
-          <View style={[StyleSheet.absoluteFill, styles.previewOverlay]}>
-            <Image source={{ uri: previewUri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
-            <TouchableOpacity style={styles.previewBackBtn} onPress={() => setSelectedIndex(null)}>
-              <Ionicons name="camera-outline" size={16} color="#fff" />
-              <Text style={styles.previewBackText}>카메라로 돌아가기</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
         {/* 촬영 가이드 */}
-        {!previewUri && (
-          <View style={styles.guideWrap}>
-            <View style={styles.guidePill}>
-              <Text style={styles.guidePillText}>계약서를 프레임 안에 맞춰주세요</Text>
-            </View>
+        <View style={styles.guideWrap}>
+          <View style={styles.guidePill}>
+            <Text style={styles.guidePillText}>문서를 프레임 안에 맞춰주세요</Text>
           </View>
-        )}
+        </View>
 
         {/* 코너 브라켓 */}
         <View style={[styles.corner, styles.cTL]} />
@@ -133,79 +115,38 @@ export default function ContractCameraScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.thumbScroll}
           contentContainerStyle={styles.thumbRow}>
-          {images.map((uri, i) => {
-            const selected = selectedIndex === i;
-            return (
-              <TouchableOpacity
-                key={`${uri}-${i}`}
-                style={[styles.thumb, selected && styles.thumbSelected]}
-                onPress={() => setSelectedIndex(selected ? null : i)}
-                onLongPress={() => deleteImage(i)}>
-                <Image source={{ uri }} style={styles.thumbImage} />
-                {selected && (
-                  <View style={styles.thumbCheck}>
-                    <Ionicons name="checkmark-circle" size={14} color={CORNER_COLOR} />
-                  </View>
-                )}
-                <Text style={[styles.thumbLabel, selected && styles.thumbLabelSelected]}>
-                  {i + 1}p
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-          <TouchableOpacity style={styles.thumbAdd} onPress={() => setSelectedIndex(null)}>
+          {images.map((uri, i) => (
+            <TouchableOpacity
+              key={`${uri}-${i}`}
+              style={styles.thumb}
+              onLongPress={() => deleteImage(i)}>
+              <Image source={{ uri }} style={styles.thumbImage} />
+              <Text style={styles.thumbLabel}>{i + 1}p</Text>
+            </TouchableOpacity>
+          ))}
+          {/* 다음 페이지 플레이스홀더 */}
+          <View style={styles.thumbPlaceholder}>
+            <Text style={styles.thumbLabel}>{images.length + 1}p</Text>
+          </View>
+          <TouchableOpacity style={styles.thumbAdd} onPress={pickFromGallery}>
             <Ionicons name="add" size={20} color="#9BA1A6" />
           </TouchableOpacity>
         </ScrollView>
 
-        {/* 이전 / 페이지 수 / 다음 */}
-        <View style={styles.pageNav}>
-          <TouchableOpacity
-            style={styles.pageNavBtn}
-            disabled={selectedIndex === null || selectedIndex === 0}
-            onPress={() => selectedIndex !== null && setSelectedIndex(selectedIndex - 1)}>
-            <Ionicons name="chevron-back" size={14} color="#fff" />
-            <Text style={styles.pageNavText}>이전</Text>
-          </TouchableOpacity>
-          <Text>
-            {selectedIndex !== null ? (
-              <>
-                <Text style={styles.pageCountNum}>{selectedIndex + 1}</Text>
-                <Text style={styles.pageCountTotal}> / {images.length} 페이지</Text>
-              </>
-            ) : (
-              <Text style={styles.pageCountTotal}>
-                {images.length > 0 ? `${images.length}장 · 새 페이지 촬영` : '촬영을 시작해 주세요'}
-              </Text>
-            )}
-          </Text>
-          <TouchableOpacity
-            style={styles.pageNavBtn}
-            disabled={selectedIndex === null || selectedIndex >= images.length - 1}
-            onPress={() => selectedIndex !== null && setSelectedIndex(selectedIndex + 1)}>
-            <Text style={styles.pageNavText}>다음</Text>
-            <Ionicons name="chevron-forward" size={14} color="#fff" />
-          </TouchableOpacity>
-        </View>
+        {/* 페이지 카운터 */}
+        <Text style={styles.pageCounter}>
+          <Text style={styles.pageCounterNum}>{images.length + 1}</Text>
+          <Text> / {images.length + 1}페이지</Text>
+        </Text>
 
-        {/* 갤러리 / 촬영 / 파일 */}
+        {/* 촬영 */}
         <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.actionBtn} onPress={pickFromGallery}>
-            <Ionicons name="image-outline" size={26} color="#fff" />
-            <Text style={styles.actionLabel}>갤러리</Text>
-          </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.captureBtn, !!previewUri && styles.captureBtnDisabled]}
-            onPress={previewUri ? undefined : takePicture}
-            disabled={!!previewUri}>
-            <View style={[styles.captureBtnInner, !!previewUri && styles.captureBtnInnerDisabled]} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => Alert.alert('준비 중이에요', '파일 선택 기능은 곧 추가될 예정이에요.')}>
-            <Ionicons name="document-outline" size={26} color="#fff" />
-            <Text style={styles.actionLabel}>파일</Text>
+            style={styles.captureBtn}
+            onPress={takePicture}>
+            <View style={styles.captureBtnInner} />
           </TouchableOpacity>
         </View>
 
@@ -214,11 +155,16 @@ export default function ContractCameraScreen() {
           style={[styles.ctaBtn, images.length === 0 && styles.ctaBtnDisabled]}
           activeOpacity={0.85}
           disabled={images.length === 0}
-          onPress={() => router.replace('/contract/analyzing')}>
+          onPress={() => {
+            console.log('[camera] CTA 눌림, images.length:', images.length);
+            contractStore.setImages(images);
+            console.log('[camera] setImages 후 getImages():', contractStore.getImages().length);
+            router.replace('/contract/analyzing');
+          }}>
           <Text style={styles.ctaBtnText}>
             {images.length === 0
               ? '사진을 추가해 주세요'
-              : `${images.length}장 완료 · 분석 시작하기 →`}
+              : '촬영 완료 · 분석 시작하기 →'}
           </Text>
         </TouchableOpacity>
 
@@ -283,28 +229,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
 
-  previewOverlay: {
-    backgroundColor: '#000',
-    borderRadius: 16,
-  },
-  previewBackBtn: {
-    position: 'absolute',
-    bottom: 16,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  previewBackText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
   guideWrap: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
@@ -328,7 +252,8 @@ const styles = StyleSheet.create({
   // 하단
   bottomControls: { gap: 12 },
 
-  thumbRow: { gap: 8, alignItems: 'center' },
+  thumbScroll: { height: 72 },
+  thumbRow: { gap: 8, alignItems: 'center', paddingHorizontal: 4 },
   thumb: {
     width: 52,
     height: 64,
@@ -341,12 +266,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     padding: 0,
   },
-  thumbSelected: { borderColor: CORNER_COLOR },
   thumbImage: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 6,
   },
-  thumbCheck: { position: 'absolute', top: 3, right: 3 },
   thumbLabel: {
     fontSize: 10,
     color: '#fff',
@@ -356,7 +279,20 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-  thumbLabelSelected: { color: CORNER_COLOR },
+
+  thumbPlaceholder: {
+    width: 52,
+    height: 64,
+    backgroundColor: '#2C2C2E',
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#636366',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    padding: 0,
+    paddingBottom: 4,
+  },
+
   thumbAdd: {
     width: 52,
     height: 64,
@@ -369,40 +305,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  pageNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  pageCounter: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '500',
+    textAlign: 'center',
   },
-  pageNavBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2C2C2E',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    gap: 2,
+  pageCounterNum: {
+    color: '#3182F6',
+    fontWeight: '700',
   },
-  pageNavText: { color: '#fff', fontSize: 13, fontWeight: '500' },
-  pageCountNum: { color: CORNER_COLOR, fontWeight: '700', fontSize: 15 },
-  pageCountTotal: { color: '#fff', fontWeight: '500', fontSize: 15 },
 
   actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-  },
-  actionBtn: {
-    width: 64,
-    height: 64,
-    backgroundColor: '#2C2C2E',
-    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
   },
-  actionLabel: { color: '#9BA1A6', fontSize: 11 },
 
   captureBtn: {
     width: 72,
@@ -413,14 +330,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  captureBtnDisabled: { borderColor: '#3A3A3C', opacity: 0.4 },
   captureBtnInner: {
     width: 56,
     height: 56,
     borderRadius: 28,
     backgroundColor: '#FF3B30',
   },
-  captureBtnInnerDisabled: { backgroundColor: '#636366' },
 
   ctaBtn: {
     backgroundColor: CORNER_COLOR,

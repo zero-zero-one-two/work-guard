@@ -5,6 +5,7 @@ import { TabActions, useNavigation } from '@react-navigation/native';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { ContractLayout } from '@/components/contract/contract-layout';
+import { contractStore } from '@/store/contractStore';
 
 const BAD_EXAMPLES = [
   {
@@ -58,6 +59,7 @@ export default function ContractUploadScreen() {
       quality: 0.8,
     });
     if (!result.canceled && result.assets.length > 0) {
+      contractStore.setImages(result.assets.map(a => a.uri));
       router.push('/contract/analyzing');
     }
   }
